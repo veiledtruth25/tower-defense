@@ -18,7 +18,7 @@ function init(){
 function save(){
   try{localStorage.setItem("bb-audio",JSON.stringify({s:AU.sOn,m:AU.mOn}))}catch(e){}
   if(AU.c){AU.sfx.gain.setTargetAtTime(AU.sOn?.6:0,AU.c.currentTime,.05);AU.mus.gain.setTargetAtTime(AU.mOn?.2:0,AU.c.currentTime,.1)}
-  const s=$("#btnSfx"),m=$("#btnMus");if(s)s.setAttribute("aria-pressed",AU.sOn);if(m)m.setAttribute("aria-pressed",AU.mOn);
+  for(const b of document.querySelectorAll("[data-audio]"))b.setAttribute("aria-pressed",String(b.dataset.audio==="sfx"?AU.sOn:AU.mOn));
 }
 // one voice: oscillator or filtered noise, an envelope, and an optional stereo position (-1..1)
 let pan=0;
@@ -73,7 +73,14 @@ const SND={
   gold(){for(let i=0;i<8;i++)tone(1320+i*80,.08,{type:"square",vol:.02,lp:5000,delay:i*.05})},
   repair(){[392,523,659,784].forEach((f,i)=>tone(f,.25,{type:"triangle",vol:.07,delay:i*.08}))},
   rage(){for(let i=0;i<4;i++){tone(90,.18,{slide:-40,vol:.3,delay:i*.18});noise(.08,{f:900,vol:.1,delay:i*.18})}},
-  click(){tone(900,.04,{type:"triangle",vol:.05})}
+  click(){tone(900,.04,{type:"triangle",vol:.05})},
+  wail(){tone(660,.55,{slide:-380,vol:.07,att:.03});tone(990,.45,{type:"triangle",slide:-600,vol:.03,att:.05,delay:.04})},
+  clang(){tone(1250,.22,{type:"square",vol:.03,lp:5000,slide:-80});tone(1870,.3,{type:"triangle",vol:.04,slide:-120});noise(.05,{ft:"highpass",f:4000,vol:.08})},
+  blorp(){tone(170,.28,{slide:280,vol:.14});noise(.16,{f:900,fs:-500,vol:.1,delay:.06})},
+  dig(){noise(.55,{f:500,fs:-260,vol:.18,att:.05});tone(70,.42,{slide:-25,vol:.15})},
+  emerge(){noise(.35,{f:1400,fs:-1000,vol:.2});tone(95,.3,{slide:-50,vol:.2})},
+  thud(){tone(55,.55,{slide:-25,vol:.45});noise(.5,{f:600,fs:-450,vol:.3});noise(.8,{ft:"highpass",f:4500,vol:.06,delay:.08,att:.05})},
+  flame(){noise(1.1,{ft:"bandpass",f:700,fs:500,q:.6,vol:.22,att:.12});tone(90,.9,{type:"sawtooth",vol:.05,lp:400,att:.1})}
 };
 // play with a minimum gap per sound so a busy wave never turns into noise
 function play(k,gap,x){
@@ -81,7 +88,8 @@ function play(k,gap,x){
   if(AU.last[k]&&now-AU.last[k]<(gap||.04))return;AU.last[k]=now;
   pan=x==null?0:x/11;try{SND[k]()}catch(e){}pan=0;
 }
-const FIRE=["arrow","cannon","ice","snipe"],HIT={0:"tick",1:"boom",2:"frost",3:"zap",9:"bigboom"},DIE={lendir:"splat",kilat:"buzz",kura:"crack"};
+const FIRE=["arrow","cannon","ice","snipe"],HIT={0:"tick",1:"boom",2:"frost",3:"zap",9:"bigboom"},DIE={lendir:"splat",kilat:"buzz",kura:"crack",hantu:"wail",perisai:"clang"};
+const ABIL={summon:"blorp",burrow:"dig",emerge:"emerge",stomp:"thud",breath:"flame",enrage:"roar"};
 BB.on("v:fire",d=>play(FIRE[d.k]||"arrow",[.05,.08,.07,.08][d.k]||.06,d.x));
 BB.on("v:hit",d=>play(HIT[d.k]||"tick",d.k===9?.12:.08,d.x));
 BB.on("v:die",d=>{play(d.boss?"bossdie":DIE[d.m]||"splat",d.boss?.3:.03,d.x);play("coin",.08,d.x)});
@@ -89,6 +97,7 @@ BB.on("v:build",d=>play("build",.1,d.x));BB.on("v:upgrade",d=>play("up",.1,d.x))
 BB.on("v:spawn",()=>play("roar",1));BB.on("v:wave",()=>play("horn",.5));BB.on("v:clear",()=>play("clear",.5));
 BB.on("v:win",()=>play("win",1));BB.on("v:lose",()=>play("lose",1));BB.on("v:leak",()=>play("leak",.2));BB.on("v:firework",d=>play("pop",.15,d.x));
 BB.on("v:help",d=>play(["meteor","freeze","gold","repair","rage"][d.k]||"click",.3));
+BB.on("v:ability",d=>play(ABIL[d.k]||"horn",.3,d.x));BB.on("v:block",d=>play("clang",.09,d.x));
 
 // background music: a small step sequencer per map theme, slower at night, darker in the eclipse,
 // and busier while a wave runs or a boss walks
@@ -105,7 +114,7 @@ function musTick(){
   const g=BB.game,S=g&&g.S;
   if(!AU.c||!AU.mOn||!S||$("#scrGame").hidden||AU.c.state!=="running"){musNext=0;return}
   const ti=Math.max(0,Math.min(3,Math.floor((S.L-1)/25))),M=THEME_MUS[g.mapOf(S.L)%THEME_MUS.length];
-  const bpm=M.bpm*(ti===2?.85:ti===3?1.12:1),root=M.root-(ti===3?3:0),st=60/bpm/2,busy=S.ph==="wave",boss=S.E.some(e=>e.t===3);
+  const bpm=M.bpm*(ti===2?.85:ti===3?1.12:1),root=M.root-(ti===3?3:0),st=60/bpm/2,busy=S.ph==="wave",A=BB.V&&BB.V.A,boss=S.E.some(e=>A&&A.isBoss?A.isBoss(e.t):e.t===3);
   const now=AU.c.currentTime;if(musNext<now)musNext=now+.05;
   while(musNext<now+.3){
     const s=musStep%8,bar=Math.floor(musStep/8),rt=root+M.bass[bar%4],o={dest:AU.mus,at:musNext};
@@ -120,9 +129,7 @@ setInterval(musTick,60);
 ["pointerdown","keydown"].forEach(ev=>document.addEventListener(ev,init,{passive:true}));
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("button"))play("click",.03)});
 window.addEventListener("DOMContentLoaded",()=>{
-  const s=$("#btnSfx"),m=$("#btnMus");
-  if(s)s.onclick=()=>{AU.sOn=!AU.sOn;save()};
-  if(m)m.onclick=()=>{AU.mOn=!AU.mOn;save()};
+  for(const b of document.querySelectorAll("[data-audio]"))b.addEventListener("click",()=>{if(b.dataset.audio==="sfx")AU.sOn=!AU.sOn;else AU.mOn=!AU.mOn;save()});
   save();
 });
 })();

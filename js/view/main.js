@@ -15,34 +15,80 @@ function fail(msg){
 // ---------- camera: a framed board in game, a slow orbit around the island in the menu ----------
 const cam={yaw:0,pitch:.98,dist:30,tx:0,ty:0,tz:.4,fov:32},goal=Object.assign({},cam);
 const _p=new THREE.Vector3();
+// In a game the HUD covers the canvas edges. V.free holds how many pixels it takes from each side; the
+// board is fitted into what is left and the image is shifted (a lens shift) so it sits in the middle of it.
+V.free={l:0,r:0,t:0,b:0};
+function measureFree(){
+  const f={l:0,r:0,t:0,b:0};
+  if(mode==="game"&&mountEl){
+    const c=mountEl.getBoundingClientRect(),rs=[];
+    for(const el of document.querySelectorAll("#scrGame [data-hud]")){const r=el.getBoundingClientRect();if(r.width>1&&r.height>1)rs.push(r)}
+    for(const r of rs){
+      if(rs.some(o=>o!==r&&r.left>=o.left-1&&r.right<=o.right+1&&r.top>=o.top-1&&r.bottom<=o.bottom+1))continue;   // part of a bigger panel
+      if(r.width>=r.height){if(r.top+r.height/2<c.top+c.height/2)f.t=Math.max(f.t,r.bottom-c.top);else f.b=Math.max(f.b,c.bottom-r.top)}
+      else if(r.left+r.width/2<c.left+c.width/2)f.l=Math.max(f.l,r.right-c.left);else f.r=Math.max(f.r,c.right-r.left)}
+    // never leave the board less than a third of the canvas
+    if(f.l+f.r>W*.67){const k=W*.67/(f.l+f.r);f.l*=k;f.r*=k}if(f.t+f.b>H*.67){const k=H*.67/(f.t+f.b);f.t*=k;f.b*=k}
+  }
+  V.free=f;const st=document.documentElement.style;for(const k of["l","r","t","b"])st.setProperty("--f"+k,Math.round(f[k])+"px");
+}
 function place(c,dist,out){
   const cp=Math.cos(c.pitch);out.position.set(c.tx+Math.sin(c.yaw)*cp*dist,c.ty+Math.sin(c.pitch)*dist,c.tz+Math.cos(c.yaw)*cp*dist);
-  out.fov=c.fov;out.aspect=W/H;out.updateProjectionMatrix();out.lookAt(c.tx,c.ty,c.tz);out.updateMatrixWorld();
+  out.fov=c.fov;out.aspect=W/H;out.updateProjectionMatrix();
+  if(out===V.cam){const e=out.projectionMatrix.elements,F=V.free;e[8]=-(F.l-F.r)/W;e[9]=-(F.b-F.t)/H;out.projectionMatrixInverse.copy(out.projectionMatrix).invert()}
+  out.lookAt(c.tx,c.ty,c.tz);out.updateMatrixWorld();
 }
 function fitPoints(){
   if(mode==="game"){const ex=V.castle?V.castle.z:0,en=V.portal?V.portal.z:0;
-    return[[-V.HX-.3,0,-V.HZ-.3],[V.HX+.3,0,-V.HZ-.3],[-V.HX-.3,0,V.HZ+.25],[V.HX+.3,0,V.HZ+.25],[-V.HX-.3,1.1,-V.HZ-.3],[V.HX+.3,1.1,-V.HZ-.3],[V.HX+1.3,.2,ex],[-V.HX-.9,.2,en]]}
+    return[[-V.HX-.3,0,-V.HZ-.3],[V.HX+.3,0,-V.HZ-.3],[-V.HX-.3,0,V.HZ+.25],[V.HX+.3,0,V.HZ+.25],[-V.HX-.3,1.1,-V.HZ-.3],[V.HX+.3,1.1,-V.HZ-.3],[V.HX+1.4,.3,ex],[-V.HX-1.9,.6,en]]}
   return[[V.X0,0,V.Z0],[V.X1,0,V.Z0],[V.X0,0,V.Z1],[V.X1,0,V.Z1],[V.X1-.8,3.6,V.Z0+1],[V.X0,-1.7,V.Z1],[V.X1,-1.7,V.Z1]];
 }
 const fitCam=new THREE.PerspectiveCamera();
 function fitGoal(){
-  const pts=fitPoints(),mx=mode==="game"?.015:.06,my=mode==="game"?.03:.08;let lo=4,hi=160;
+  const pts=fitPoints(),mx=mode==="game"?.025:.06,my=mode==="game"?.03:.08,F=V.free,fw=(W-F.l-F.r)/W,fh=(H-F.t-F.b)/H;let lo=4,hi=160;
   for(let i=0;i<24;i++){const mid=(lo+hi)/2;place(goal,mid,fitCam);
-    const fits=pts.every(p=>{_p.set(p[0],p[1],p[2]).project(fitCam);return Math.abs(_p.x)<=1-mx&&Math.abs(_p.y)<=1-my&&_p.z<1});
+    const fits=pts.every(p=>{_p.set(p[0],p[1],p[2]).project(fitCam);return Math.abs(_p.x)<=fw-mx&&Math.abs(_p.y)<=fh-my&&_p.z<1});
     if(fits)hi=mid;else lo=mid}
   goal.dist=hi;
 }
 function setGoal(){
-  // a portrait canvas looks down the long side of the board, so tiles stay big enough to tap
-  if(mode==="game")Object.assign(goal,W/H<.95?{yaw:Math.PI/2,pitch:1.05,tx:0,ty:0,tz:0,fov:34}:{yaw:0,pitch:W/H<1.3?1.08:.98,tx:.35,ty:0,tz:.5,fov:32});
+  // a portrait free area looks down the long side of the board, so tiles stay big enough to tap
+  const F=V.free,fa=Math.max(1,W-F.l-F.r)/Math.max(1,H-F.t-F.b);
+  if(mode==="game")Object.assign(goal,fa<.95?{yaw:Math.PI/2,pitch:1.05,tx:0,ty:0,tz:0,fov:34}:{yaw:0,pitch:fa<1.3?1.08:.98,tx:.35,ty:0,tz:.5,fov:32});
   else Object.assign(goal,{yaw:0,pitch:.74,tx:.3,ty:-.2,tz:-.4,fov:30});
   fitGoal();
 }
+// ---------- the gallery (#galeri): the menu battle parades every model and the camera visits each one ----------
+V.gallery=location.hash==="#galeri";
+let capEl=null,capKey="";
+function caption(ev){
+  const key=ev?String(ev.t):"";if(key===capKey)return;capKey=key;
+  if(!capEl){const hv=$("#heroView");if(!hv)return;capEl=document.createElement("div");capEl.className="gal-cap";hv.append(capEl)}
+  if(!ev){capEl.hidden=true;return}
+  const A=V.A,e=A.enOf(ev.t)||{},b=document.createElement("b"),sp=document.createElement("span");
+  b.textContent=(e.n||"")+(A.isBoss(ev.t)?" · Bos":"");sp.textContent=e.ds||BEAST_DS[A.modelOf(ev.t)]||"";
+  capEl.textContent="";capEl.append(b,sp);
+  if(A.isExtra(ev.t)){const i=document.createElement("i");i.textContent="Model baru, belum ada di permainan";capEl.append(i)}
+  capEl.hidden=false;
+}
+function galleryGoal(){
+  const ev=V.A.featured();caption(ev);if(!ev)return;
+  // a three-quarter view from the front, swaying slowly from side to side
+  const h=V.A.heightOf(ev.t),boss=V.A.isBoss(ev.t);
+  Object.assign(goal,{tx:ev.x,ty:ev.y+h*.45,tz:ev.z,dist:(boss?4.6:3)+h*1.8,pitch:.6,fov:30,yaw:Math.atan2(Math.cos(ev.yaw),-Math.sin(ev.yaw))+.6+Math.sin(V.time*.35)*.4});
+}
+function setGallery(on){
+  V.gallery=on;const b=$("#btnGal");if(b)b.setAttribute("aria-pressed",String(on));
+  if(!on){caption(null);if(ok)setGoal()}
+  if(ok)buildBestiary();
+}
+window.addEventListener("hashchange",()=>setGallery(location.hash==="#galeri"));
 function camTick(dt){
   const k=2.6;
+  if(mode==="menu"&&V.gallery)galleryGoal();
   for(const f of["pitch","dist","tx","ty","tz","fov"])cam[f]=V.damp(cam[f],goal[f],k,dt);
-  const sway=V.RM?0:1,base=mode==="game"?Math.sin(V.time*.13)*.012*sway:Math.sin(V.time*.07)*.34*sway;
-  cam.yaw=V.damp(cam.yaw,goal.yaw+base,k,dt);
+  const sway=V.RM||(mode==="menu"&&V.gallery)?0:1,base=mode==="game"?Math.sin(V.time*.13)*.012*sway:Math.sin(V.time*.07)*.34*sway;
+  cam.yaw=V.dampAng(cam.yaw,goal.yaw+base,k,dt);
   place(cam,cam.dist,V.cam);
   if(V.debugCam){const d=V.debugCam;V.cam.position.set(d[0],d[1],d[2]);V.cam.lookAt(d[3],d[4],d[5]);V.cam.updateMatrixWorld();return}
   if(shake>0){const s=shake*shake*.32,n=V.time*31;V.cam.position.x+=(V.noise(n,1)-.5)*s;V.cam.position.y+=(V.noise(n,7)-.5)*s;V.cam.position.z+=(V.noise(n,13)-.5)*s;shake=Math.max(0,shake-dt*2.4)}
@@ -51,6 +97,7 @@ function camTick(dt){
 // ---------- sizing and adaptive resolution ----------
 function applySize(){
   if(!mountEl)return;const r=mountEl.getBoundingClientRect();W=Math.max(1,Math.round(r.width));H=Math.max(1,Math.round(r.height));
+  measureFree();
   V.renderer.setPixelRatio(dpr);V.renderer.setSize(W,H,false);
   const sc=H*dpr/(2*Math.tan(THREE.MathUtils.degToRad(cam.fov)/2));V.PA.mat.uniforms.uScale.value=sc;V.PN.mat.uniforms.uScale.value=sc;
   setGoal();
@@ -170,7 +217,7 @@ function iconSetup(){
   iconScene.add(new THREE.HemisphereLight(0xeaf2ff,0x4a3a2a,1));const d=new THREE.DirectionalLight(0xffffff,1.1);d.position.set(3,5,4);iconScene.add(d);
   iconCam=new THREE.PerspectiveCamera(30,1,.05,60);
   iconRT=new THREE.WebGLRenderTarget(192,192);iconRT.texture.encoding=THREE.sRGBEncoding;
-  iconKits={};for(const def of V.KDEF){const k=new V.Kit(def.geo,def.mat,4,false);iconKits[def.name]=k;iconScene.add(k.mesh)}
+  iconKits={};for(const def of V.KDEF){const k=new V.Kit(def.geo,def.mat,12,false);iconKits[def.name]=k;iconScene.add(k.mesh)}
 }
 const _m=new THREE.Matrix4();
 function renderIcon(cv,kind,id){
@@ -184,9 +231,9 @@ function renderIcon(cv,kind,id){
     if(t===2)V.put(iconKits.crys1,_m,.2,.54,0,0,.5,0);
     look=.48;dist=3.2;
   }else{
-    const ev={id:1,t:id|0,fl:0,sl:0,spawn:1},m=V.A.modelOf(id|0),s=m==="raja"?.6:.66;
-    V.A.drawModel(ev,0,0,0,-Math.PI/4,1.2,s);
-    look=m==="kilat"?.42:m==="raja"?.5:.3;dist=m==="raja"?3.2:2.3;
+    const ev={id:1,t:id|0,fl:0,sl:0,spawn:1},m=V.A.modelOf(id|0),f=ICON[m]||[.3,2.3,.66,0];
+    V.A.drawModel(ev,f[3],0,f[3],-Math.PI/4,1.2,f[2]);
+    look=f[0];dist=f[1];
   }
   for(const k in iconKits)iconKits[k].flush();V.K=keep;
   iconCam.position.set(dist*.55,look+dist*.5,dist*.75);iconCam.lookAt(0,look,0);
@@ -199,14 +246,28 @@ function renderIcon(cv,kind,id){
   void fog;
 }
 
-// ---------- the bestiary in the menu: one portrait per enemy type the logic defines ----------
+// look-at height, distance, scale and offset of each model's portrait
+const ICON={kilat:[.42,2.3,.66,0],raja:[.55,2.9,.72,0],hantu:[.48,2.3,.82,0],perisai:[.5,2.4,.85,0],rajalendir:[.42,2.4,.8,0],kalajengking:[.36,2.6,.78,.18],yeti:[.62,2.9,.68,0],naga:[.42,3,.6,.35]};
+
+// ---------- the bestiary in the menu: one portrait per enemy type (in the gallery, the new models too) ----------
 const BEAST_DS={lendir:"Lemah tapi datang berbondong-bondong",kilat:"Tawon super cepat",kura:"Tempurung tebal, jalannya lambat",raja:"Bos di gelombang ke-5 dan terakhir"};
 function buildBestiary(){
   const el=$("#bestiary");if(!el)return;el.textContent="";
-  BB.game.EN.forEach((e,i)=>{const d=document.createElement("div");d.className="beast"+(V.A.isBoss(i)?" boss":"");
+  const A=V.A,n=A.types();
+  for(let i=0;i<n;i++){const e=A.enOf(i);if(!e)continue;
+    const d=document.createElement("button");d.type="button";d.className="beast"+(A.isBoss(i)?" boss":"")+(A.isExtra(i)?" new":"");d.dataset.t=i;d.title="Lihat "+e.n+" dari dekat";
     const c=document.createElement("canvas");c.width=88;c.height=88;const b=document.createElement("b");b.textContent=e.n;
-    const s=document.createElement("span");s.textContent=e.ds||BEAST_DS[V.A.modelOf(i)]||"";d.append(c,b,s);el.append(d);renderIcon(c,"enemy",i)});
+    const s=document.createElement("span");s.textContent=e.ds||BEAST_DS[A.modelOf(i)]||"";d.append(c,b,s);
+    if(A.isExtra(i)){const tg=document.createElement("em");tg.textContent="Baru";d.append(tg)}
+    el.append(d);renderIcon(c,"enemy",i)}
 }
+// a card shows that monster up close in the gallery; the button turns the gallery on and off
+document.addEventListener("click",e=>{
+  if(!e.target.closest)return;
+  const card=e.target.closest(".beast[data-t]");
+  if(card){if(!V.gallery)setGallery(true);V.A.feature(+card.dataset.t);const hv=$("#heroView");if(hv&&hv.scrollIntoView)hv.scrollIntoView({behavior:"smooth",block:"nearest"});return}
+  if(e.target.closest("#btnGal"))setGallery(!V.gallery);
+});
 
 // ---------- the API game.js calls ----------
 const view={};
@@ -226,15 +287,18 @@ view.init=()=>{
   const q=new THREE.Quaternion(),_v=new THREE.Vector3(),_s=new THREE.Vector3(),cm=new THREE.Matrix4();
   V.fxCloud={place(c){q.copy(V.cam.quaternion);for(let i=0;i<3;i++){_v.set(c.x+(i-1)*c.s*.42,c.y+(i===1?c.s*.12:0),c.z+(i-1)*.6);const s=c.s*(i===1?1:.72);_s.set(s,s*.62,1);cm.compose(_v,q,_s);V.FX.cloud.push(cm,c.c[0],c.c[1],c.c[2],c.a)}}};
   selInit();ovInit();
-  BB.on("shot",d=>V.A.onShot(d));BB.on("death",d=>V.A.onDeath(d));BB.on("help",d=>V.A.onHelp(d));
-  new ResizeObserver(()=>{if(mountEl)applySize()}).observe(document.body);
+  BB.on("shot",d=>V.A.onShot(d));BB.on("death",d=>V.A.onDeath(d));BB.on("help",d=>V.A.onHelp(d));BB.on("ability",d=>V.A.onAbility(d));
+  const ro=new ResizeObserver(()=>{if(mountEl)applySize()});
+  for(const el of[document.body,$("#cvWrap"),$("#hudTop"),$("#hudDock"),$("#helpBar")])if(el)ro.observe(el);
   V.ok=ok=true;
   for(const[cv,kind,id]of queue)renderIcon(cv,kind,id);queue=[];
-  buildBestiary();
+  setGallery(V.gallery);
 };
 view.show=which=>{
-  if(failed)return;mode=which==="game"?"game":"menu";
-  if(!ok)return;
+  mode=which==="game"?"game":"menu";
+  document.documentElement.classList.toggle("playing",mode==="game");
+  if(V.hud)V.hud.show(mode);
+  if(failed||!ok)return;
   mountEl=mode==="game"?$("#cvWrap"):$("#heroView");if(!mountEl)return;
   mountEl.prepend(canvas);V.A.reset();V.worldKey="";
   for(const L of labels){L.age=L.life;L.el.style.opacity="0"}
@@ -258,6 +322,7 @@ view.frame=dt=>{
   frameN++;V.renderer.shadowMap.autoUpdate=!lowShadow;if(lowShadow&&frameN%2===0)V.renderer.shadowMap.needsUpdate=true;
   V.renderer.render(V.scene,V.cam);
   ovTick(dt,mode==="game"?S:null);
+  if(V.hud)V.hud.tick(dt,mode==="game"?S:null,W,H);
   perf(dt);void st;
 };
 view.reset=()=>{if(ok){V.A.reset();pw=pph=plv=null}};

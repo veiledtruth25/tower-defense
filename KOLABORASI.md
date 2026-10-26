@@ -7,13 +7,13 @@ Proyek ini dikerjakan dua sesi Claude Code dari dua akun berbeda. Kedua sesi tid
 | Bagian | Pemilik | File |
 |---|---|---|
 | Logika: data menara, musuh, peta, level, gelombang, simulasi, multiplayer, progres (permata, toko, tantangan, hadiah, event), panel DOM di menu dan di samping papan | Sesi logika | `js/game.js` |
-| Tampilan 3D: pulau per peta, suasana per level, model, animasi, efek, kamera, overlay di atas papan, ikon toko dan bestiary | Sesi desain | `js/view/*.js` |
+| Tampilan 3D: pulau per peta, suasana per level, model, animasi, efek, kamera, overlay di atas papan, ikon toko dan bestiary, HUD layar penuh (letak panel, menu permainan, kartu menara terpilih) | Sesi desain | `js/view/*.js` |
 | Efek suara dan musik | Sesi desain | `js/audio.js` |
 | Jembatan event antara logika dan tampilan | Bersama, jarang diubah | `js/bus.js` |
 | Struktur halaman dan CSS | Bersama: sesi desain memegang gaya, sesi logika boleh menambah elemen | `index.html` |
 | Three.js r149 (lisensi MIT) | Pihak ketiga, jangan diubah | `vendor/` |
 
-Urutan pemuatan skrip ada di akhir `index.html`: Three.js, `bus.js`, `audio.js`, `js/view/*.js`, lalu `game.js` (yang menyalakan semuanya).
+Urutan pemuatan skrip ada di akhir `index.html`: Three.js, `bus.js`, `audio.js`, `js/view/*.js` (`core`, `models`, `world`, `actors`, `main`, `hud`), lalu `game.js` (yang menyalakan semuanya).
 
 ## Alur kerja
 
@@ -41,6 +41,15 @@ Dibuat di akhir `game.js`. Tampilan tidak pernah mengubah isinya.
 
 Field state yang dibaca tampilan: `S.ph`, `S.L`, `S.w`, `S.mw`, `S.lv`, `S.sp`, `S.wm`, `S.rg`, `S.P[i].c`, `S.T[i].{x,y,t,l,o}`, `S.E[i].{id,t,d,hp,sl}`. Kalau sesi logika mengganti nama atau arti field ini, catat di `docs/catatan-logika.md` supaya tampilan bisa ikut diubah.
 
+Dua field opsional untuk kemampuan bos (tampilan tetap jalan kalau keduanya tidak ada):
+
+| Field | Isi | Tampilan |
+|---|---|---|
+| `S.E[i].ab` | Keadaan yang sedang berlangsung: `"burrow"` (di dalam pasir) atau `"enrage"` (mengamuk) | Kalajengking tenggelam ke gundukan pasir, hanya sengatnya yang terlihat. Naga menyala lebih panas dan menyebar bara. Masuk dan keluar dari keadaan ini diberi efek dan suara. |
+| `S.T[i].fz` | Sisa detik menara dilumpuhkan | Menara terbungkus es atau hangus berasap, tergantung kemampuan yang terakhir mengenainya (`stomp` atau `breath`), dan penjaganya berhenti membidik |
+
+Di multiplayer, kirim kedua field ini lewat `encode`/`decode` supaya klien melihat hal yang sama.
+
 ### Event dari logika (`BB.emit`)
 
 Dikirim oleh host dari simulasi dan oleh klien dari event `F` di jaringan, jadi semua pemain melihat hal yang sama. Koordinat dalam satuan petak: x 0–20, y 0–12, pusat petak berada di +0,5.
@@ -50,6 +59,7 @@ Dikirim oleh host dari simulasi dan oleh klien dari event `F` di jaringan, jadi 
 | `shot` | Menara menembak | `{t, x1, y1, x2, y2}`: jenis menara, pusat menara, titik sasaran |
 | `death` | Musuh mati | `{t, x, y, gold}`: jenis musuh, posisi, emas yang didapat |
 | `help` | Bantuan dipakai | `{k, slot, S}`: indeks di `HELP`, slot pemain, state saat itu |
+| `ability` | Bos memakai kemampuan sekali jalan | `{t, k, x, y, id?, tx?, ty?, r?}`: jenis musuh, nama kemampuan, posisinya, `id` musuh (disarankan), titik sasaran dan jari-jari dalam petak. `k`: `"summon"` (Raja Lendir memuntahkan lendir), `"stomp"` (Yeti menghentak, menara dalam `r` membeku), `"breath"` (Naga menyembur ke `tx,ty`, menara dalam `r` hangus). Nama lain tetap diberi efek cincin umum sampai sesi desain membuat efeknya. |
 
 Tampilan menunda ledakan kematian sampai proyektil yang membunuh benar-benar mendarat, jadi logika tidak perlu mengatur waktu efek apa pun.
 
@@ -66,7 +76,9 @@ Tampilan menunda ledakan kematian sampai proyektil yang membunuh benar-benar men
 
 ### Konvensi untuk konten baru
 
-- **Musuh baru**: tambahkan ke `EN`. Field opsional untuk tampilan: `model` (`"lendir"`, `"kilat"`, `"kura"`, `"raja"`), `boss: true` (bar HP besar dan aura), `ds` (deskripsi di "Kenali musuh"). Musuh tanpa `model` digambar sebagai bola berwarna `EN.col` sampai sesi desain membuat modelnya.
+- **Musuh baru**: tambahkan ke `EN`. Field opsional untuk tampilan: `model`, `boss: true` (bar HP besar dan aura), `ds` (deskripsi di "Kenali musuh"). Musuh tanpa `model` digambar sebagai bola berwarna `EN.col` sampai sesi desain membuat modelnya.
+- **Model yang sudah ada**: `"lendir"`, `"kilat"`, `"kura"`, `"raja"`, `"hantu"`, `"perisai"`, dan bos `"rajalendir"`, `"kalajengking"`, `"yeti"`, `"naga"`. Model bos dianggap bos kalau `boss` tidak diisi. Model yang belum dipakai `EN` hanya muncul di galeri.
+- **Galeri**: buka halaman dengan `#galeri` di akhir alamat, atau tekan "Galeri 3D" di menu. Pertempuran mini di menu lalu memamerkan semua model (termasuk yang belum ada di `EN`), bos memakai kemampuannya, dan kamera mendekati tiap monster. Ketuk kartu di "Kenali musuh" untuk melihat satu monster sendirian.
 - **Menara baru** (indeks 4 ke atas): sementara memakai model Panah. Tulis permintaannya di catatanmu.
 - **Peta baru**: tema mengikuti urutan peta (indeks % 4). Sesi desain bisa menambah tema.
 - **Suasana** mengikuti nomor level: 1–25 pagi, 26–50 senja, 51–75 malam, 76–100 gerhana.
@@ -83,11 +95,30 @@ Isi logika tidak diubah. Yang disentuh hanya:
 - `leave()` memanggil `setBanner("")`. Ini memperbaiki bug lama: banner menang/kalah tertinggal saat main lagi.
 - `BB.game` ditambahkan di akhir file.
 
+## Layar permainan (HUD)
+
+Saat bermain, `#scrGame` mengisi seluruh layar: kanvas 3D di belakang, HUD di atasnya. Semua ID yang dipakai `game.js` tetap sama, dan `game.js` tetap mengisi serta memperbarui isinya. Yang berubah hanya letaknya:
+
+| Elemen | Letak sekarang |
+|---|---|
+| `#stats` (`#hLives`, `#hGold`, `#hWave`, `#hLevel`, `#hRoomWrap`), `#waveTxt`, `#btnSpeed` | Bar atas `#hudTop` |
+| `#shop`, `#helpBar`, `#btnNext` | Dok `#hudDock`: di bawah pada layar tegak, di kanan pada layar mendatar |
+| `#selBox` | Kartu yang melayang di samping menara terpilih (diatur `hud.js` tiap frame) |
+| `#banner` | Kartu di bagian bawah area papan |
+| `#plist`, `#btnLeave` | Menu permainan `#gameMenu` (tombol ☰) |
+
+Hal yang perlu diketahui sesi logika:
+
+- Kalau menambah elemen ke HUD, beri atribut `data-hud` pada panel yang menutupi tepi layar. Kamera membingkai papan di area yang tidak tertutup panel tersebut.
+- Di layar sentuh, ketukan pertama di petak kosong (saat menara dipilih) ditahan tampilan untuk menampilkan bayangan menara dan jangkauannya. Ketukan kedua di petak yang sama diteruskan ke `game.js` dan menara dibangun. Tetikus tidak terpengaruh.
+- Tombol × di kartu menara mengirim `keydown` Escape ke `document`, sama dengan menekan Esc.
+- Tampilan juga meminta layar penuh (kalau peramban mengizinkan) saat permainan dimulai dari layar sentuh, dan menjaga layar tetap menyala selama bermain.
+
 ## Event internal tampilan untuk audio
 
-Tampilan mengirim `v:fire`, `v:hit`, `v:die`, `v:build`, `v:upgrade`, `v:sell`, `v:spawn`, `v:wave`, `v:clear`, `v:win`, `v:lose`, `v:leak`, `v:help` dan `v:firework` pada saat efeknya terlihat, lalu `audio.js` memutar suaranya. Sesi logika tidak perlu memakai event ini.
+Tampilan mengirim `v:fire`, `v:hit`, `v:die`, `v:build`, `v:upgrade`, `v:sell`, `v:spawn`, `v:wave`, `v:clear`, `v:win`, `v:lose`, `v:leak`, `v:help`, `v:firework`, `v:ability` dan `v:block` pada saat efeknya terlihat, lalu `audio.js` memutar suaranya. Sesi logika tidak perlu memakai event ini.
 
 ## Menjalankan dan menerbitkan
 
 - **Lokal**: buka `index.html` di browser. Semua skrip memakai `<script src>` biasa, jadi bisa jalan dari file lokal tanpa server.
-- **Artifact claude.ai**: terbitkan `index.html` beserta `vendor/three.min.js`, `js/bus.js`, `js/audio.js`, `js/view/*.js` dan `js/game.js` sebagai file pendukung (path sama). Kemampuan yang dibutuhkan: `room` (topik `state` dan `cmd` dibuka untuk level `interact`), `user`, dan `db` (koleksi `events` hanya bisa ditulis admin).
+- **Artifact claude.ai**: terbitkan `index.html` beserta `vendor/three.min.js`, `js/bus.js`, `js/audio.js`, `js/view/*.js` (termasuk `hud.js`) dan `js/game.js` sebagai file pendukung (path sama). Kemampuan yang dibutuhkan: `room` (topik `state` dan `cmd` dibuka untuk level `interact`), `user`, dan `db` (koleksi `events` hanya bisa ditulis admin).
