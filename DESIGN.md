@@ -1,93 +1,118 @@
-# Desain game Benteng Bersama
+# Desain tampilan 3D Benteng Bersama
 
-Semua aset digambar dengan kode (canvas 2D), dan semua suara dibuat dengan WebAudio. Tidak ada file gambar atau audio, jadi game tetap berupa satu file `index.html`.
+Semua grafis dibangun dengan kode di atas Three.js (r149): tidak ada model, tekstur atau audio dari file. Tampilannya low-poly dan berbayang datar. Papan 20×12 berdiri di atas **pulau melayang**, jadi batas area main selalu jelas dan suasana langit terlihat di sekelilingnya.
 
-## Level
+## Peta dan suasana
 
-Tiap level punya jalan, tema, bos, jumlah gelombang dan tingkat kesulitan sendiri. Level dipilih di menu. Setelah menang atau kalah, pemain bisa lanjut ke level berikutnya atau memilih level lain. Level yang sudah dimenangkan ditandai "Selesai" (disimpan di browser).
+Tiap peta logika mendapat tema sendiri. Tiap 25 level, waktu berganti, jadi naik level juga terasa dari tampilannya.
 
-| # | Level | Gelombang | Bos | HP musuh | Emas awal | Karakter jalan |
-|---|-------|-----------|-----|----------|-----------|----------------|
-| 1 | Padang Hijau | 10 | Raja Lendir | ×1,00 | +0 | Panjang, banyak tikungan. Untuk belajar. |
-| 2 | Gurun Pasir | 15 | Kalajengking | ×1,08 | +20 | Jalan ular paling panjang dengan kolom bangunan yang sempit. |
-| 3 | Puncak Salju | 15 | Yeti | ×1,16 | +40 | Musuh masuk dari atas, dengan dua jalur lurus panjang yang sejajar. |
-| 4 | Kawah Api | 20 | Naga Api | ×1,25 | +60 | Jalan terpendek, berbentuk huruf U. |
+| Peta (logika) | Tema | Jalan | Dekorasi | Penanda di belakang | Cuaca |
+|---|---|---|---|---|---|
+| Lembah Hijau | Padang | Tanah cokelat bergaris | Pohon bulat, semak berbuah, batu, bunga, jamur | Kincir angin berputar dan pagar | Serbuk sari (siang), kunang-kunang (malam) |
+| Bukit Kembar | Salju | Salju padat dengan jejak kereta | Pinus bersalju, batu bertopi salju, kristal es, manusia salju | Dua bukit salju dan pondok berasap | Salju turun |
+| Rawa Berliku | Rawa | Jembatan papan kayu | Pohon dedalu, tunggul, batang tumbang, alang-alang, jamur menyala | Rumah panggung | Kabut rendah, kunang-kunang, air beriak |
+| Ular Raksasa | Gurun | Pasir padat berbatu | Kaktus, batu pasir berlapis, tulang | Tengkorak dan rusuk ular raksasa | Debu tertiup angin |
 
-- Bos muncul tiap 5 gelombang. Gelombang terakhir membawa satu bos tambahan, dan banner-nya bertuliskan "GELOMBANG TERAKHIR".
-- Hantu dan Perisai mulai muncul lebih awal di level yang lebih sulit.
-- Menahan gelombang terakhir = menang ("BENTENG SELAMAT!" dengan kembang api).
+| Level | Suasana | Cahaya |
+|---|---|---|
+| 1–25 | Pagi | Matahari hangat, bayangan tegas, langit biru |
+| 26–50 | Senja | Matahari rendah oranye, bayangan panjang |
+| 51–75 | Malam | Cahaya bulan biru, bintang, obor dan portal berpendar |
+| 76–100 | Gerhana | Langit merah gelap, bara beterbangan |
 
-## Latar (background)
+Detail yang membuat pulau terasa hidup:
 
-Peta 20×12 petak digambar sekali per level ke canvas cadangan. Bagian yang bergerak digambar tiap frame.
+- Rumput, daun dan alang-alang bergoyang tertiup angin.
+- Bendera berkibar dan kincir angin berputar.
+- Portal berpusar dengan rune yang berdenyut.
+- Burung (kelelawar saat malam) terbang berputar di atas pulau.
+- Membangun menara di petak berdekorasi menyingkirkan pohon atau batunya dengan semburan daun, dan dekorasi tumbuh kembali saat menara dijual.
 
-| Tema | Tanah | Jalan | Rintangan (tidak bisa dibangun) | Cuaca/animasi |
-|------|-------|-------|---------------------------------|---------------|
-| Padang | Rumput hijau, rumput kecil, bunga | Tanah cokelat | Pohon, batu, semak berbuah | Kunang-kunang |
-| Gurun | Pasir dengan riak bukit | Tanah padat gelap | Kaktus, batu pasir, tengkorak | Debu tertiup angin |
-| Salju | Salju dengan gundukan dan kilau | Batu es biru-abu, tepi salju | Pinus bersalju, batu es, manusia salju | Salju turun |
-| Kawah | Batu basal dengan retakan menyala | Batu hitam dengan pinggir lava | Menara obsidian, kolam lava, pohon mati | Bara naik, kolam lava berdenyut |
+## Kastel dan portal
 
-Rintangan hanya ditempatkan minimal 2 petak dari jalan, jadi petak bagus di dekat jalan tetap bisa dibangun. Pintu masuk berupa portal berputar yang warnanya mengikuti tema, dan jalan berakhir di benteng batu dengan gerbang dan bendera berkibar.
+- **Kastel** berdiri di ujung kanan papan: tembok berbenteng, dua menara gerbang beratap, menara utama berbendera, dan obor di gerbang.
+- Saat nyawa berkurang, gerbang berkedip merah, puing berjatuhan, dan layar bergetar.
+- Di bawah 12 nyawa, menara utama berasap. Di bawah 6 nyawa, tembok terbakar. Saat kalah, jeruji gerbang jatuh.
+- **Portal** batu di ujung kiri: musuh muncul dengan kilatan sewarna tema, dan bos muncul dengan gelombang kejut.
 
-## Karakter (menara)
+## Menara dan penjaganya
 
-Tiap menara dijaga satu karakter kecil berwarna pemiliknya. Karakter ini berputar menghadap target dan terdorong mundur saat menembak.
+Tiap menara dijaga karakter chibi yang bajunya berwarna pemiliknya. Penjaga terus membidik musuh terdepan dalam jangkauan (aturan yang sama dengan logika), berbalik dengan halus, dan terdorong mundur saat menembak.
 
-| Menara | Karakter | Detail |
-|--------|----------|--------|
-| Panah | Pemanah bertudung | Busur panjang, tali ditarik, anak panah terpasang saat siap |
-| Meriam | Meriam beroda + juru tembak berhelm | Laras mundur saat menembak, asap di moncong |
-| Es | Penyihir es | Kristal melayang dan tiga serpihan yang mengorbit |
-| Jitu | Penembak jitu berbaret | Senapan panjang dengan teropong berkilau |
+| Menara | Penjaga | Ciri saat menembak |
+|---|---|---|
+| Panah | Pemanah bertudung | Anak panah terpasang di busur saat siap |
+| Meriam | Meriam beroda dan juru tembak berhelm | Obor menyala, asap di moncong |
+| Es | Penyihir bertopi runcing | Kristal melayang berdenyut, serpihan mengorbit |
+| Jitu | Penembak berbaret | Lensa teropong berkilat |
 
-Alas menara berubah tiap level: **Lv1** papan kayu, **Lv2** batu bata, **Lv3** benteng batu dengan paku emas dan cahaya berdenyut. Saat dibekukan Yeti, menara tertutup balok es. Saat dibakar Naga, menara menghitam dan berasap.
+Alas dan senjata ikut berubah tiap level:
 
-## Monster
+- **Level 1**: panggung kayu dengan panji.
+- **Level 2**: menara batu dengan spanduk.
+- **Level 3**: benteng putih bersabuk emas dengan lambang menyala dan aura sewarna menaranya.
 
-| Monster | Bentuk | Gerak | Sifat |
-|---------|--------|-------|-------|
-| Lendir | Gumpalan hijau berkilau | Melompat, memipih dan memanjang, meneteskan lendir | Dasar |
-| Kilat | Tawon kuning bergaris | Terbang dengan sayap mengepak dan bayangan jejak | Sangat cepat |
-| Kura | Kura-kura bertempurung segi enam | Kaki melangkah bergantian, kepala bergoyang | HP tebal, bocor 2 nyawa |
-| Hantu | Kain putih bergelombang | Melayang, transparansinya berkedip | **Kebal efek lambat** |
-| Perisai | Goblin berhelm dengan perisai layang | Berjalan, jambul bergoyang, perisai menghadap arah jalan | **Zirah 6**: damage dikurangi 6 (minimal 30%), jadi Jitu dan Meriam lebih efektif |
+Senjata level 3 juga lebih mewah: busur emas, meriam laras ganda, dan senapan berhias emas.
 
-## Bos
+Menara baru jatuh dari atas lalu memantul. Saat ditingkatkan, menara membesar sesaat dengan spiral emas. Saat dijual, menara tenggelam dengan debu dan koin. Selama Genderang Perang aktif, semua menara memerah dan bercincin merah.
 
-Bos punya bar HP besar di atas layar, auman saat muncul, dan aura.
+## Monster dan bos
 
-| Bos | Level | Kemampuan |
-|-----|-------|-----------|
-| Raja Lendir | Padang | Tiap 4,5 detik memanggil 2 Lendir di belakangnya |
-| Kalajengking | Gurun | Tiap 6,5 detik menggali ke pasir selama 2 detik: damage masuk ×0,25 dan bergerak ×1,5 |
-| Yeti | Salju | Tiap 5,5 detik menghentak: menara dalam radius 2,3 petak membeku 2,2 detik |
-| Naga Api | Kawah | Tiap 6,5 detik menyemburkan api (radius 1,9, menara mati 2 detik). Saat HP di bawah 50%: **mengamuk** sekali, pulih 15% HP, bergerak ×1,5 dan menyembur tiap 4,5 detik |
+| Musuh | Model | Gerak |
+|---|---|---|
+| Lendir | Gumpalan hijau mengilap bermata besar | Melompat, memipih saat mendarat, berkedip |
+| Kilat | Tawon bergaris dengan sengat | Terbang dengan sayap transparan mengepak, meninggalkan jejak cahaya |
+| Kura | Kura-kura bertempurung faset | Empat kaki melangkah bergantian, kepala bergoyang |
+| Raja (bos) | Raja merah bertanduk, mahkota emas bertatah permata, jubah ungu, tongkat | Jubah berayun, langkah berat; bar HP besar di atas layar dan aura merah di tanah |
 
-Kemampuan bos dihitung oleh host lalu dikirim ke semua pemain sebagai event, jadi semua pemain melihat dan mendengar efek yang sama.
+- **Reaksi kena tembak**: monster menggembung dan berkedip putih, tepat saat proyektil mendarat.
+- **Efek lambat**: monster berwarna es, animasinya melambat, dan serpihan salju berjatuhan.
+- **Kematian tiap jenis berbeda**: lendir muncrat dan meninggalkan genangan, tawon pecah jadi percikan, tempurung kura hancur jadi kepingan, dan Raja meledak beruntun disertai hujan koin.
 
-## Animasi
+Monster melangkah sedikit ke kiri atau ke kanan jalur, jadi rombongan tidak terlihat bertumpuk.
 
-- Monster: siklus jalan/terbang per jenis, mata mengikuti arah gerak, kilat putih saat terkena, lapisan es saat diperlambat, hancur dengan cara berbeda per jenis (lendir muncrat, tempurung pecah, hantu menguap, besi berpercikan).
-- Menara: membal saat dibangun dan ditingkatkan, hentakan mundur, debu saat dijual.
-- Proyektil: panah dengan jejak, peluru meriam melengkung dengan bayangan, bola es, sinar jitu.
-- Layar: guncangan saat ledakan atau hentakan, vinyet merah saat nyawa berkurang, banner gelombang, bar HP bos, kembang api saat menang.
-- Menu: peta level terpilih ditampilkan hidup dengan parade monster dan menara yang membidik. Daftar "Kenali musuh" juga bergerak.
-- `prefers-reduced-motion` mematikan guncangan dan partikel cuaca.
+## Proyektil dan efek
 
-## Efek suara dan musik
+- **Panah** terbang melengkung dengan jejak.
+- **Peluru meriam** terbang melengkung tinggi dengan asap. Ledakannya berupa bola api, cahaya yang menerangi sekitar, cincin kejut, puing, dan bekas hangus.
+- **Bola es** berputar dengan percikan. Benturannya berupa semburan salju, cincin es, dan bekas beku.
+- **Sinar Jitu** menyala lalu memudar.
 
-Semua suara disintesis dengan oscillator dan noise yang difilter. Tiap suara dibatasi jedanya, jadi banyak menara tidak membuat suara pecah.
+Efek bantuan:
 
-| Kejadian | Suara |
-|----------|-------|
-| Panah / Meriam / Es / Jitu menembak | Desis tali / dentum rendah / denting naik / zap sinar |
-| Kena sasaran | Tik / ledakan / kretak es / percik listrik |
-| Monster mati | Lendir "splat", tawon dengung, tempurung retak, hantu merintih, besi berdenting + koin |
-| Bangun / tingkatkan / jual | Ketukan kayu / arpeggio naik / koin turun |
-| Gelombang mulai / selesai | Terompet / jingle pendek |
-| Bos muncul / mati | Auman / ledakan + fanfare |
-| Kemampuan bos | Gelembung panggilan, gemuruh pasir, hentakan berat, semburan api, auman amukan |
-| Nyawa berkurang, menang, kalah | Dentum rendah, fanfare, melodi turun |
+| Bantuan | Efek |
+|---|---|
+| Hujan Meteor | Batu berapi jatuh ke tiap musuh dengan ledakan besar |
+| Badai Es | Layar membiru, cincin beku di tiap musuh, salju lebat |
+| Kantong Emas | Hujan koin |
+| Tukang Benteng | Kastel bercahaya hijau dengan kilau penyembuh |
+| Genderang Perang | Layar memerah, cincin di semua menara |
 
-Musik latar adalah sequencer kecil per tema: pentatonik ceria (Padang), tangga nada timur (Gurun), lidian pelan seperti lonceng (Salju), minor cepat (Kawah). Saat gelombang berjalan, musik menambah hi-hat dan kick, lalu kick ganda saat bos ada. Tombol **Suara** dan **Musik** di kanan atas menyala/mematikan masing-masing, dan pilihannya diingat di browser.
+Overlay di atas papan:
+
+- Angka emas melayang.
+- Banner gelombang ("GELOMBANG 3", "GELOMBANG TERAKHIR", peringatan Raja).
+- Bar HP bos dengan jejak kerusakan.
+- Judul besar "LEVEL n TAMAT!" (dengan kembang api) atau "BENTENG RUNTUH".
+
+## Kamera dan kelancaran
+
+- Kamera meluncur masuk ke papan saat permainan dimulai, lalu diam dengan goyangan halus. Kamera bergetar saat ada ledakan, bos muncul, atau benteng runtuh.
+- Di menu, kamera mengitari pulau perlahan sementara pertempuran mini berlangsung di atasnya.
+- Di layar tegak (ponsel), kamera melihat sisi panjang papan, jadi petak cukup besar untuk diketuk.
+- Semua gerak memakai interpolasi yang tidak bergantung frame rate. Posisi monster dihaluskan di antara langkah simulasi (30 Hz) dan kiriman jaringan (8 Hz), jadi tetap mulus di layar 60–120 Hz.
+- Bagian yang sama digambar sekaligus (instancing), jadi ratusan musuh dan menara cukup puluhan draw call. Beban JavaScript tampilan sekitar 1 ms per frame.
+- Resolusi turun otomatis kalau frame melambat, dan pembaruan bayangan dijarangkan di perangkat lemah.
+- Pengaturan "kurangi gerakan" mematikan goyangan kamera, getaran, burung dan cuaca.
+
+## Suara
+
+Semua suara dibuat dengan WebAudio. Suara diposisikan kiri-kanan sesuai letak kejadian di peta, dan tiap suara dibatasi jedanya supaya gelombang ramai tidak berisik.
+
+- **Tembakan**: tiap menara punya bunyi sendiri.
+- **Benturan**: tik, ledakan, kretak es, percik listrik.
+- **Kematian**: berbeda per jenis musuh, ditambah koin.
+- **Bangunan dan gelombang**: bangun, tingkatkan, jual, terompet gelombang, jingle selesai, auman bos, dentum saat benteng terkena, fanfare menang, melodi kalah.
+- **Bantuan**: tiap bantuan punya bunyi sendiri.
+
+Musik latar berbeda per tema peta. Musik lebih pelan saat malam, lebih gelap saat gerhana, dan makin ramai saat gelombang berjalan atau bos muncul.
