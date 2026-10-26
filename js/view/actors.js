@@ -6,17 +6,39 @@
 const BB=window.BB,V=BB.V,THREE=window.THREE;
 if(!THREE)return;
 const A=V.A={},gm=()=>BB.game,H=V.hash;
-let t=0,towers=new Map(),enemies=new Map(),corpses=[],sold=[],projs=[],bits=[],fxs=[],later=[];
+let t=0,fdt=1/60,towers=new Map(),enemies=new Map(),corpses=[],sold=[],projs=[],bits=[],fxs=[],later=[];
 const wx=tx=>tx-V.HX,wz=ty=>ty-V.HZ;
 const _R=new THREE.Matrix4(),_T=new THREE.Matrix4(),_B=new THREE.Matrix4(),_v=new THREE.Vector3(),_s=new THREE.Vector3(),_q=new THREE.Quaternion();
+const _P=new THREE.Matrix4(),_Q=new THREE.Matrix4(),_L2=new THREE.Matrix4(),_w=new THREE.Vector3();
 const say=(n,d)=>{if(!A.demo)BB.emit(n,d)};
 
 // ---------- models: the logic may name one per enemy type with EN[t].model ----------
 const DEFAULT_MODEL=["lendir","kilat","kura","raja"];
-A.modelOf=ti=>{const e=gm().EN[ti]||{};return e.model||DEFAULT_MODEL[ti]||"x"};
-A.isBoss=ti=>{const e=gm().EN[ti]||{};return e.boss!=null?!!e.boss:A.modelOf(ti)==="raja"};
-const sizeOf=ti=>{const e=gm().EN[ti]||{r:.3};return e.r*2.45*(A.isBoss(ti)?1.4:1)};
-const heightOf=ti=>{const m=A.modelOf(ti),s=sizeOf(ti);return(m==="kilat"?.75:m==="raja"?1.25:.62)*s};
+const BOSS_MODELS=new Set(["raja","rajalendir","kalajengking","yeti","naga"]);
+// models made before the logic has an enemy type for them. Only the gallery (#galeri) and its menu
+// battle use them, with these stats; once EN has a type with the same model, the extra is dropped.
+A.EXTRA=[
+  {n:"Hantu",model:"hantu",hp:55,spd:1.5,r:.27,col:"#e6e1fb",ds:"Melayang tembus pandang di atas jalan"},
+  {n:"Perisai",model:"perisai",hp:160,spd:.95,r:.3,col:"#9aa6bd",ds:"Goblin berzirah, panah memantul di perisainya"},
+  {n:"Raja Lendir",model:"rajalendir",hp:900,spd:.6,r:.45,col:"#8fd16a",boss:true,ds:"Bos: memuntahkan lendir kecil"},
+  {n:"Kalajengking",model:"kalajengking",hp:1200,spd:.75,r:.45,col:"#c97b35",boss:true,ds:"Bos: menyelam ke pasir dan lolos dari tembakan"},
+  {n:"Yeti",model:"yeti",hp:1500,spd:.5,r:.45,col:"#eef3f8",boss:true,ds:"Bos: hentakannya membekukan menara"},
+  {n:"Naga Api",model:"naga",hp:2000,spd:.62,r:.45,col:"#d84a30",boss:true,ds:"Bos: semburan apinya menghanguskan menara"}
+];
+const enModel=i=>{const e=gm().EN[i]||{};return e.model||DEFAULT_MODEL[i]||"x"};
+let xl=null,xn=-1;
+const extras=()=>{const EN=gm().EN;if(xn!==EN.length){xn=EN.length;const have=new Set(EN.map((e,i)=>enModel(i)));xl=A.EXTRA.filter(x=>!have.has(x.model))}return xl};
+// enemy types the view knows: the logic's EN, then (in the gallery) the extras
+A.types=()=>gm().EN.length+(V.gallery?extras().length:0);
+A.isExtra=ti=>ti>=gm().EN.length;
+A.enOf=ti=>{const EN=gm().EN;return ti<EN.length?EN[ti]:extras()[ti-EN.length]};
+A.modelOf=ti=>{const EN=gm().EN;if(ti<EN.length)return enModel(ti);const x=extras()[ti-EN.length];return x?x.model:"x"};
+A.isBoss=ti=>{const e=A.enOf(ti)||{};return e.boss!=null?!!e.boss:BOSS_MODELS.has(A.modelOf(ti))};
+const spdOf=e=>e.t<gm().EN.length?gm().spd(e):(A.enOf(e.t)||{spd:1}).spd*(e.sl>0?e.sf:1);
+const sizeOf=ti=>{const e=A.enOf(ti)||{r:.3};return e.r*2.45*(A.isBoss(ti)?1.4:1)};
+const HEIGHT={kilat:.75,raja:1.25,hantu:1.05,perisai:1.18,rajalendir:.82,kalajengking:.5,yeti:1.2,naga:.75};
+const heightOf=ti=>(HEIGHT[A.modelOf(ti)]||.62)*sizeOf(ti);
+A.heightOf=heightOf;
 
 // ---------- short-lived effects: glows, rings, beams, decals ----------
 function fx(kit,x,y,z,life,s0,s1,col,a,rot){fxs.push({kit,x,y,z,life,max:life,s0,s1,c:col,a,rot:rot||0})}
@@ -96,11 +118,46 @@ A.onHelp=d=>{
     V.ov&&V.ov.label(0,1.6,0,"Damage +50%","rage big")}
   say("v:help",{k});
 };
+// boss abilities. One-off actions come as the event "ability" {t,k,x,y,id?,tx?,ty?,r?}; lasting states
+// (burrowed, enraged) come as the enemy field e.ab. A tower the logic disables carries tw.fz (seconds left)
+// and looks frozen or scorched depending on which ability reached it.
+A.onAbility=d=>{
+  const k=d.k,x=wx(d.x),z=wz(d.y),r=d.r||1.6,ev=(d.id!=null&&enemies.get(d.id))||evFor(d.t|0,x,z,2);
+  if(ev){ev.abK=k;ev.abT=t;ev.abX=d.tx!=null?wx(d.tx):null;ev.abZ=d.ty!=null?wz(d.ty):null}
+  const at=()=>ev?[ev.x,ev.y,ev.z,ev.tx,ev.ty]:[x,0,z,d.x,d.y];
+  if(k==="summon")later.push({at:t+.4,fn:()=>{const[X,Y,Z]=at(),h=heightOf(d.t|0);
+    fx("ring",X,.08,Z,.5,.3,2,[.55,1,.45],.8);puff(V.PN,14,X,Y+h*.7,Z,1.6,2.2,.7,.1,.05,[.6,.9,.45],.9,6,1.2);
+    for(let i=0;i<5;i++){const a=Math.random()*6.28,v=V.rnd(1.2,2.2);bit("m0",X,Y+h*.8,Z,Math.cos(a)*v,V.rnd(3,4.2),Math.sin(a)*v,.8,.3,[1,1,1],4)}
+    say("v:ability",{k,x:X})}});
+  else if(k==="stomp")later.push({at:t+.52,fn:()=>{const[X,,Z,TX,TY]=at();
+    fx("ring",X,.08,Z,.6,.4,r*2.4,[.75,.92,1],1);fx("ringN",X,.07,Z,.5,.3,r*1.7,[.92,.97,1],.7);fx("decal",X,.076,Z,3.5,r*1.5,r*1.5,[.85,.95,1],.45);
+    puff(V.PN,26,X,.2,Z,2.6,.9,.9,.16,.5,[.93,.97,1],.8,.3,2);burst(8,"chunk",X,.2,Z,2.4,3,1,1,LC("#d8f2ff"));V.shake(.6);
+    for(const rec of towers.values())if(Math.hypot(rec.x+.5-TX,rec.y+.5-TY)<=r+.5){rec.fk="ice";const cx=wx(rec.x+.5),cz=wz(rec.y+.5);
+      fx("ring",cx,rec.h+.08,cz,.5,.2,1.2,[.8,.95,1],.9);puff(V.PN,8,cx,rec.h+.5,cz,1,.8,.7,.1,.05,[.9,.97,1],.9,1,1.5)}
+    say("v:ability",{k,x:X})}});
+  else if(k==="breath"){let TX=d.tx,TY=d.ty;
+    if(TX==null){const p=ev&&V.geo?gm().posIn(V.geo,ev.vd+2.2):[d.x+1,d.y];TX=p[0];TY=p[1];if(ev){ev.abX=wx(TX);ev.abZ=wz(TY)}}
+    later.push({at:t+.62,fn:()=>{const X=wx(TX),Z=wz(TY),h=V.groundAt(TX,TY);
+      fx("decal",X,.076,Z,4.5,r*1.7,r*1.7,[.1,.07,.06],.6);fx("glow",X,h+.4,Z,.5,.6,2.4,[1,.6,.25],.8);flash(X,h+.8,Z,[1,.55,.25],2.8,.7);
+      for(const rec of towers.values())if(Math.hypot(rec.x+.5-TX,rec.y+.5-TY)<=r+.5)rec.fk="burn"}});
+    say("v:ability",{k,x})}
+  else{fx("ring",x,.08,z,.5,.3,2,[1,.85,.5],.8);say("v:ability",{k,x})}  // an ability without its own effect yet
+};
+// the logic changed an enemy's lasting state (e.ab): into the sand, back up, or enraged
+function abState(ev,from,to){
+  if(to==="burrow"){puff(V.PN,18,ev.x,ev.y+.1,ev.z,1.6,1.2,.9,.16,.55,[.82,.68,.46],.7,.5,2);burst(7,"chunk",ev.x,ev.y+.1,ev.z,1.8,2.6,.9,1,LC("#c99d5c"));
+    fx("ringN",ev.x,.08,ev.z,.5,.3,1.8,[.85,.7,.5],.7);say("v:ability",{k:"burrow",x:ev.x})}
+  else if(from==="burrow"){puff(V.PN,22,ev.x,ev.y+.1,ev.z,2.2,1.8,1,.18,.6,[.82,.68,.46],.75,.6,2);burst(10,"chunk",ev.x,ev.y+.1,ev.z,2.2,3.4,1,1.1,LC("#c99d5c"));
+    fx("ring",ev.x,.08,ev.z,.5,.3,2.4,[1,.8,.5],.8);V.shake(.3);say("v:ability",{k:"emerge",x:ev.x})}
+  if(to==="enrage"){fx("ring",ev.x,.08,ev.z,.7,.4,3,[1,.45,.2],1);fx("glow",ev.x,ev.y+.6,ev.z,.5,.6,2.6,[1,.5,.2],.9);flash(ev.x,ev.y+1,ev.z,[1,.45,.2],2.4,.6);
+    V.shake(.35);say("v:ability",{k:"enrage",x:ev.x})}
+}
 
 // ---------- impacts and deaths ----------
 function impact(k,x,y,z,tx,ty){
   const hitR=k===1?1.05:k===2?.8:.4;
   for(const ev of enemies.values())if(Math.abs(ev.tx-tx)<hitR&&Math.abs(ev.ty-ty)<hitR)ev.fl=1;
+  if(k===0){const e=enemyNear(tx,ty,.5);if(e&&A.modelOf(e.t)==="perisai"){puff(V.PA,9,x,y,z,2.6,1.4,.22,.06,.02,[1,.95,.7],1,3);fx("glow",x,y,z,.1,.15,.5,[1,.95,.75],1);say("v:block",{x});return}}
   if(k===0){puff(V.PA,6,x,y,z,2.2,.6,.25,.07,.02,[1,.95,.75],1);puff(V.PN,3,x,.08,z,.4,.3,.5,.1,.3,[.72,.64,.52],.4,-.1)}
   else if(k===1||k===9){const big=k===9?1.7:1;
     fx("glow",x,y+.15,z,.22,.6*big,2.3*big,[1,.78,.45],1);fx("ring",x,.07,z,.45,.3,2.1*big,[1,.75,.4],.8);fx("decal",x,.075,z,3,1.1*big,1.1*big,[.12,.09,.07],.55);
@@ -111,14 +168,33 @@ function impact(k,x,y,z,tx,ty){
     puff(V.PN,12,x,y,z,1.8,.9,.6,.08,.03,[.92,.98,1],.9,1.2);burst(5,"chunk",x,y,z,1.3,2.2,.7,.75,LC("#cdefff"));say("v:hit",{k,x})}
   else{fx("glow",x,y,z,.16,.2,.8,[.95,.8,1],1);puff(V.PA,8,x,y,z,3,.8,.25,.08,.02,[.9,.72,1],1);fx("ring",x,y,z,.25,.1,.6,[.9,.7,1],.7);say("v:hit",{k,x})}
 }
+// the enemy (alive, or a corpse) of type ti nearest to world x,z
+function evFor(ti,x,z,maxD){let best=null,bd=maxD*maxD;const test=ev=>{if(ev.t!==ti)return;const d=(ev.x-x)*(ev.x-x)+(ev.z-z)*(ev.z-z);if(d<bd){bd=d;best=ev}};
+  for(const ev of enemies.values())test(ev);for(const c of corpses)test(c.ev);return best}
+function coinRain(x,y,z,n){for(let i=0;i<n;i++)bit("coin",x,y,z,V.rnd(-2,2),V.rnd(3,5),V.rnd(-2,2),2.2,1.4,[1,1,1],6)}
 function dieFx(ti,x,z,gold){
   const m=A.modelOf(ti),boss=A.isBoss(ti),s=sizeOf(ti),y=heightOf(ti)*.5;
   if(m==="lendir"){puff(V.PN,16,x,y,z,1.8,2.2,.7,.09,.04,[.55,.82,.4],.95,7,1.2);burst(6,"chunk",x,y,z,1.6,2.8,.8,1,LC("#8fd16a"));fx("decal",x,.076,z,2.6,.2,.75,[.36,.6,.25],.7)}
   else if(m==="kilat"){puff(V.PA,14,x,y,z,2.5,1,.35,.08,.02,[1,.9,.4],1);burst(4,"chunk",x,y,z,1.4,1.5,.9,.8,LC("#e8f6ff"));puff(V.PN,5,x,y,z,.5,.5,.6,.15,.4,[.9,.9,.85],.45)}
   else if(m==="kura"){burst(9,"chunk",x,y,z,1.8,2.6,1.1,1.25,LC("#8b6a42"));puff(V.PN,8,x,.1,z,.8,.6,.9,.2,.6,[.7,.62,.5],.45,-.1)}
   else if(m==="raja"){for(let i=0;i<5;i++)later.push({at:t+i*.12,fn:()=>{const a=Math.random()*6.28,r=V.rnd(0,.5);impact(9,x+Math.cos(a)*r,y,z+Math.sin(a)*r,0,0)}});
-    burst(14,"chunk",x,y,z,2.4,3.8,1.4,1.6,LC("#e9b949"));fx("ring",x,.08,z,1.1,.5,4,[1,.85,.4],1);for(let i=0;i<10;i++)bit("coin",x,y,z,V.rnd(-2,2),V.rnd(3,5),V.rnd(-2,2),2.2,1.4,[1,1,1],6);V.shake(.9)}
-  else{const c=SC((gm().EN[ti]||{}).col||"#ffffff");puff(V.PA,14,x,y,z,2.2,1.4,.5,.1,.03,c,1,2);burst(6,"chunk",x,y,z,1.6,2.4,.9,1,LC((gm().EN[ti]||{}).col||"#ffffff"))}
+    burst(14,"chunk",x,y,z,2.4,3.8,1.4,1.6,LC("#e9b949"));fx("ring",x,.08,z,1.1,.5,4,[1,.85,.4],1);coinRain(x,y,z,10);V.shake(.9)}
+  else if(m==="hantu"){puff(V.PA,22,x,y,z,1,1.5,1.1,.16,.02,[.8,.74,1],.9,-1.3,1.4);fx("glow",x,y,z,.35,.4,1.6,[.75,.7,1],.8);fx("ring",x,.08,z,.5,.2,1.1,[.75,.7,1],.6)}
+  else if(m==="perisai"){burst(5,"chunk",x,y,z,1.5,2.6,.9,1,LC("#9aa6bd"));puff(V.PN,6,x,.1,z,.7,.5,.8,.15,.45,[.7,.68,.62],.45,-.1);
+    bit("m_per_s",x,y+.15,z,V.rnd(-1.2,1.2),3.4,V.rnd(-1.2,1.2),1.4,s,[1,1,1],7);bit("m_per_w",x,y+.25,z,V.rnd(-1.5,1.5),4,V.rnd(-1.5,1.5),1.3,s,[1,1,1],12)}
+  else if(m==="rajalendir"){
+    for(let i=0;i<3;i++)later.push({at:t+i*.16,fn:()=>{const a=Math.random()*6.28,r=V.rnd(.1,.5);puff(V.PN,14,x+Math.cos(a)*r,y,z+Math.sin(a)*r,2+i*.6,2.4,.8,.12,.05,[.55,.85,.4],.95,7,1.2);fx("glow",x,y,z,.2,.5,1.6+i*.5,[.7,1,.55],.7)}});
+    later.push({at:t+.45,fn:()=>{burst(16,"chunk",x,y,z,2.6,3.6,1.3,1.4,LC("#8fd16a"));fx("decal",x,.076,z,4,.4,2.2,[.36,.6,.25],.75);fx("ring",x,.08,z,.8,.4,3.4,[.6,1,.45],.9);
+      bit("m_rl_c",x,y+.6,z,V.rnd(-.8,.8),5,V.rnd(-.8,.8),2.4,s,[1,1,1],6);coinRain(x,y,z,10);V.shake(.8)}})}
+  else if(m==="kalajengking"){burst(14,"chunk",x,y,z,2.2,3.4,1.3,1.4,LC("#c97b35"));puff(V.PN,18,x,.15,z,1.8,1,1.1,.22,.8,[.82,.68,.46],.6,-.1,1.6);
+    bit("m_kj_s",x,y+.4,z,V.rnd(-1.5,1.5),4.5,V.rnd(-1.5,1.5),2,s,[1,1,1],9);for(const sd of[1,-1])bit("m_kj_p",x,y+.2,z,V.rnd(-1.4,1.4),3.6,1.6*sd,1.8,s,[1,1,1],6);
+    fx("ring",x,.08,z,.9,.5,3.6,[1,.75,.4],.9);coinRain(x,y,z,10);V.shake(.8)}
+  else if(m==="yeti"){puff(V.PN,34,x,y+.3,z,2.6,2,1.2,.16,.5,[.93,.97,1],.9,1.2,1.4);burst(12,"chunk",x,y,z,2.4,3.4,1.3,1.4,LC("#e2e9f1"));
+    fx("ring",x,.08,z,.9,.5,3.8,[.75,.92,1],1);fx("decal",x,.076,z,4,.5,2.6,[.85,.95,1],.5);fx("glow",x,y,z,.4,.6,2.4,[.8,.93,1],.8);coinRain(x,y,z,10);V.shake(.85)}
+  else if(m==="naga"){const ev=evFor(ti,x,z,2),sg=ev&&ev.sg?ev.sg.map(p=>p.slice()):[[x,y,z]];
+    sg.forEach((p,i)=>later.push({at:t+i*.1,fn:()=>{impact(9,p[0],p[1],p[2],-99,-99);puff(V.PA,10,p[0],p[1],p[2],1.4,1.8,.9,.12,.03,[1,.55,.2],1,-.6,1.2)}}));
+    later.push({at:t+sg.length*.1,fn:()=>{fx("ring",x,.08,z,1,.5,4.4,[1,.6,.3],1);coinRain(x,y,z,12);V.shake(.9)}})}
+  else{const col=(A.enOf(ti)||{}).col||"#ffffff";puff(V.PA,14,x,y,z,2.2,1.4,.5,.1,.03,SC(col),1,2);burst(6,"chunk",x,y,z,1.6,2.4,.9,1,LC(col))}
   fx("glow",x,y,z,.18,.3*s,1.2*s,[1,1,1],.7);
   if(!boss)bit("coin",x,y+.1,z,V.rnd(-.6,.6),3.2,V.rnd(-.6,.6),.9,1,[1,1,1],10);
   if(gold&&V.ov)V.ov.label(x,y+.5,z,"+"+gold,boss?"gold big":"gold");
@@ -133,16 +209,18 @@ function drawTower(rec,S,dt){
   let drop=0;if(age<.55)drop=(1-V.ease.bounce(age/.55))*1.8;
   const ua=t-rec.up,pop=ua<.7?Math.sin(ua/.7*Math.PI)*.22*(1-ua/.7):0,sc=1+pop,y=rec.h+drop;
   const rage=S.rg>0,rr=rage?1+.25*(.5+.5*Math.sin(t*10+rec.seed)):1;
+  const fz=rec.fzv||0,burn=rec.fk==="burn",still=1-fz,fr=burn?1-fz*.6:1-fz*.3,fg=burn?1-fz*.62:1-fz*.08,fb=burn?1-fz*.64:1+fz*.35;
+  const ocr=oc.r*fr,ocg=oc.g*fg,ocb=oc.b*fb;
   V.M(cx,y,cz,0,-Math.PI/2,0,sc,sc*(1-pop*.5),sc,_R);
-  K["tb"+L].push(_R,rr,1,1);
-  const sw=Math.sin(t*3+rec.seed);
-  if(L===1)V.put(K.tb1c,_R,-.36,.72,-.36,0,sw*.5-.3,0,1,1,1,oc.r,oc.g,oc.b);
-  else if(L===2)V.put(K.tb2c,_R,.43,.6,0,0,0,sw*.06,1,1,1,oc.r,oc.g,oc.b);
-  else{V.put(K.tb3c,_R,.445,.78,.2,0,0,sw*.06,1,1,1,oc.r,oc.g,oc.b);V.put(K.tb3c,_R,.445,.78,-.2,0,0,-sw*.06,1,1,1,oc.r,oc.g,oc.b);
-    const gl=1.3+.5*Math.sin(t*3+rec.seed);V.put(K.tb3g,_R,.47,.58,0,0,t*1.5,0,1,1,1,oc.r*gl,oc.g*gl,oc.b*gl)}
+  K["tb"+L].push(_R,rr*fr,fg,fb);
+  const sw=Math.sin(t*3+rec.seed)*still;
+  if(L===1)V.put(K.tb1c,_R,-.36,.72,-.36,0,sw*.5-.3,0,1,1,1,ocr,ocg,ocb);
+  else if(L===2)V.put(K.tb2c,_R,.43,.6,0,0,0,sw*.06,1,1,1,ocr,ocg,ocb);
+  else{V.put(K.tb3c,_R,.445,.78,.2,0,0,sw*.06,1,1,1,ocr,ocg,ocb);V.put(K.tb3c,_R,.445,.78,-.2,0,0,-sw*.06,1,1,1,ocr,ocg,ocb);
+    const gl=(1.3+.5*Math.sin(t*3+rec.seed))*(1-fz*.6);V.put(K.tb3g,_R,.47,.58,0,0,t*1.5,0,1,1,1,oc.r*gl,oc.g*gl,oc.b*gl)}
   const cs=crewScale(L)*sc,top=y+V.TOWER_TOP[L-1]*sc*(1-pop*.5),back=rec.rc*.09,c=Math.cos(rec.yaw),s=Math.sin(rec.yaw);
-  V.M(cx-c*back,top,cz+s*back,0,rec.yaw,rec.rc*.08,cs,cs*(1+Math.sin(t*2.2+rec.seed)*.025),cs,_T);
-  const kt=K["c"+rec.t+"_"+L]||K["c0_"+L];kt.push(_T,rr,1,1);(K["c"+rec.t+"c"]||K.c0c).push(_T,oc.r,oc.g,oc.b);
+  V.M(cx-c*back,top,cz+s*back,0,rec.yaw,rec.rc*.08,cs,cs*(1+Math.sin(t*2.2+rec.seed)*.025*still),cs,_T);
+  const kt=K["c"+rec.t+"_"+L]||K["c0_"+L];kt.push(_T,rr*fr,fg,fb);(K["c"+rec.t+"c"]||K.c0c).push(_T,ocr,ocg,ocb);
   if(rec.t===0&&t-rec.fireT>.28)V.put(K.nock,_T,0,.22,-.035);
   else if(rec.t===1){const f=1+Math.sin(t*23+rec.seed)*.25;V.put(K.flame,_T,-.09,.31,-.25,0,t*3,0,f,f*1.2,f)}
   else if(rec.t===2){const b=Math.sin(t*2.4+rec.seed)*.04,p=1+Math.max(0,.4-(t-rec.fireT))*1.2;V.put(K["crys"+L],_T,.2,.54+b,0,0,t*1.6,0,p,p,p);
@@ -150,11 +228,17 @@ function drawTower(rec,S,dt){
   else if(rec.t===3){const g=1+Math.max(0,.5-(t-rec.fireT))*2;V.put(K.lens,_T,.148,.275,-.05,0,0,0,1,1,1,g,g,g)}
   if(L===3){const tc=SC(gm().TW[rec.t]?gm().TW[rec.t].col:"#ffffff"),a=.22+.12*Math.sin(t*3+rec.seed);V.M(cx,rec.h+.09,cz,0,t*.5,0,1.6,1,1.6,_B);V.FX.decalA.push(_B,tc[0],tc[1],tc[2],a)}
   if(rage){V.M(cx,rec.h+.1,cz,0,0,0,1.35+.12*Math.sin(t*8+rec.seed),1,1.35+.12*Math.sin(t*8+rec.seed),_B);V.FX.ring.push(_B,1,.4,.6,.75)}
+  if(fz>.01){
+    if(burn){if(Math.random()<dt*9*fz)V.PN.add(cx+V.rnd(-.25,.25),top+.2,cz+V.rnd(-.25,.25),V.rnd(-.1,.1),.7,V.rnd(-.1,.1),1.6,.15,.6,.22,.2,.2,.55*fz,-.15,.6);
+      if(Math.random()<dt*12*fz)V.PA.add(cx+V.rnd(-.3,.3),V.rnd(y+.2,top+.3),cz+V.rnd(-.3,.3),V.rnd(-.1,.1),V.rnd(.4,.8),V.rnd(-.1,.1),.7,.07,.02,1,.55,.2,1,-.3,1,1);
+      for(let i=0;i<2;i++){const f=(.8+.3*Math.sin(t*21+i*2+rec.seed))*fz;V.M(cx+(i?.18:-.16),top+.05,cz+(i?-.12:.14),0,t*3+i,0,2.6*f,3.4*f,2.6*f,_B);K.flame.push(_B,1.3,1,.9)}}
+    else{V.M(cx,rec.h-.02,cz,0,rec.seed,0,1.02,(V.TOWER_TOP[L-1]+.62)*fz,1.02,_B);K.iceblock.push(_B,1,1,1);
+      if(Math.random()<dt*3*fz)V.PA.add(cx+V.rnd(-.45,.45),rec.h+V.rnd(.2,V.TOWER_TOP[L-1]+.5),cz+V.rnd(-.45,.45),0,0,0,.4,.1,.02,.85,.95,1,1,0,0)}}
 }
 function trackAim(rec,S,dt){
-  if(t-rec.fireT<.4)return;
+  if(t-rec.fireT<.4||rec.fz>0)return;
   const st=gm().stat(rec.t,rec.l),r2=st.range*st.range,cx=rec.x+.5,cy=rec.y+.5;let best=null,bd=-1;
-  for(const ev of enemies.values()){const dx=ev.tx-cx,dy=ev.ty-cy;if(dx*dx+dy*dy<=r2&&ev.vd>bd){bd=ev.vd;best=ev}}
+  for(const ev of enemies.values()){if(ev.ab==="burrow")continue;const dx=ev.tx-cx,dy=ev.ty-cy;if(dx*dx+dy*dy<=r2&&ev.vd>bd){bd=ev.vd;best=ev}}
   const goal=best?Math.atan2(-(best.ty-cy),best.tx-cx):rec.idle+Math.sin(t*.4+rec.seed)*.8;
   rec.yaw=V.dampAng(rec.yaw,goal,best?9:1.4,dt);
 }
@@ -173,7 +257,7 @@ function syncTowers(S,dt){
     if(tw.l>rec.l){rec.up=t;const x=wx(tw.x+.5),z=wz(tw.y+.5);fx("ring",x,rec.h+.06,z,.7,.3,1.6,[1,.85,.4],1);fx("glow",x,rec.h+.7,z,.4,.4,1.6,[1,.85,.45],.8);
       for(let i=0;i<26;i++){const a=i/26*Math.PI*4;V.PA.add(x+Math.cos(a)*.42,rec.h+.1+i*.035,z+Math.sin(a)*.42,-Math.sin(a)*.6,1.1,Math.cos(a)*.6,.9,.1,.03,1,.85,.4,1,0,1.2,1)}
       flash(x,rec.h+1,z,[1,.85,.5],1.8,.35);say("v:upgrade",{x,l:tw.l})}
-    rec.l=tw.l;rec.o=tw.o;
+    rec.l=tw.l;rec.o=tw.o;rec.fz=tw.fz||0;rec.fzv=A.fresh?(rec.fz>0?1:0):V.damp(rec.fzv||0,rec.fz>0?1:0,rec.fz>0?8:3,dt);
     trackAim(rec,S,dt);rec.rc=Math.max(0,rec.rc-dt*7);drawTower(rec,S,dt);
   }
   for(const[key,rec]of towers)if(!seen.has(key)){towers.delete(key);if(!A.fresh){sold.push(Object.assign({},rec,{at:t}));const x=wx(rec.x+.5),z=wz(rec.y+.5);
@@ -186,6 +270,7 @@ function syncTowers(S,dt){
 function tint(ev){const f=ev.fl,sl=ev.sl>0;let r=1+f*2.4,g=1+f*2.4,b=1+f*2.4;if(sl){r*=.72;g*=.9;b*=1.45}if(ev.spawn<1){const k=1+(1-ev.spawn)*2;r*=k;g*=k*.8;b*=k*1.2}return[r,g,b]}
 function drawMonster(ev,x,y,z,yaw,ph,s,c){
   const K=V.K,m=A.modelOf(ev.t);
+  if(DRAW[m]){DRAW[m](ev,x,y,z,yaw,ph,s,c);return}
   if(m==="lendir"){const hop=Math.abs(Math.sin(ph)),land=1-hop,sy=1+hop*.14-(land>.82?(land-.82)*1.5:0),sxz=1/Math.sqrt(sy);
     V.M(x,y+hop*.22*s,z,0,yaw,0,s*sxz,s*sy,s*sxz,_R);K.m0.push(_R,c[0],c[1],c[2]);
     const bl=((ph*.16+ev.id*.37)%3)<.08?.12:1;V.put(K.m0e,_R,0,.4*(1-bl),0,0,0,0,1,bl,1,c[0],c[1],c[2])}
@@ -200,8 +285,130 @@ function drawMonster(ev,x,y,z,yaw,ph,s,c){
     for(const sd of[1,-1]){V.put(K.m3a,_R,.05,.86,.5*sd,.25*sd,0,Math.sin(ph+(sd>0?0:Math.PI))*.55);V.put(K.m3l,_R,0,.32,.2*sd,0,0,Math.sin(ph+(sd>0?Math.PI:0))*.5)}
     V.put(K.m3s,_R,.32,.62,-.52,0,0,-.35+Math.sin(ph)*.1);
     if(!A.icon){V.M(x,.08,z,0,t,0,s*1.6,1,s*1.6,_B);V.FX.ring.push(_B,1,.35,.3,.55+.25*Math.sin(t*5));V.M(x,.08,z,0,0,0,s*2,1,s*2,_B);V.FX.decalA.push(_B,.9,.2,.15,.35)}}
-  else{V.M(x,y+Math.abs(Math.sin(ph))*.1*s,z,0,yaw,0,s,s,s,_R);const e=gm().EN[ev.t]||{},cc=V.col(e.col||"#c0c0c0");K.mx.push(_R,cc.r*c[0],cc.g*c[1],cc.b*c[2])}
+  else{V.M(x,y+Math.abs(Math.sin(ph))*.1*s,z,0,yaw,0,s,s,s,_R);const e=A.enOf(ev.t)||{},cc=V.col(e.col||"#c0c0c0");K.mx.push(_R,cc.r*c[0],cc.g*c[1],cc.b*c[2])}
 }
+
+// ---------- the second bestiary: ghost, shield goblin and four more bosses ----------
+const DRAW={};
+// 0..1 through an ability pose that started at ev.abT, or -1 when none is playing
+const abK=(ev,k,dur)=>ev.abK===k&&t-ev.abT<dur?(t-ev.abT)/dur:-1;
+function aura(x,z,s,col,a){if(A.icon)return;a=a==null?1:a;V.M(x,.08,z,0,t,0,s*1.6,1,s*1.6,_B);V.FX.ring.push(_B,col[0],col[1],col[2],(.42+.2*Math.sin(t*5))*a);
+  V.M(x,.08,z,0,0,0,s*2,1,s*2,_B);V.FX.decalA.push(_B,col[0]*.8,col[1]*.8,col[2]*.8,.2*a)}
+function glowAt(x,y,z,sz,col,a){_w.set(x,y,z);_s.set(sz,sz,sz);_B.compose(_w,V.cam.quaternion,_s);V.FX.glow.push(_B,col[0],col[1],col[2],a)}
+// ghost: floats, sways and leaves wisps behind; the sheet casts no shadow, so a soft one is painted under it
+DRAW.hantu=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.5,hov=.16+Math.sin(p)*.07,br=Math.sin(p*1.8);
+  V.M(x,y+hov*s,z,Math.sin(p*.7+ev.id)*.1,yaw+Math.sin(p*.6)*.15,-.15-Math.cos(p)*.05,s*(1+br*.03),s*(1-br*.035),s,_R);
+  K.m_hantu.push(_R,c[0],c[1],c[2]);K.m_hantu_f.push(_R,c[0],c[1],c[2]);
+  if(A.icon)return;
+  const sh=s*(.95-hov*.8);V.M(x,y+.08,z,0,0,0,sh,1,sh,_B);V.FX.decal.push(_B,.12,.1,.2,.3);
+  glowAt(x,y+(hov+.5)*s,z,1.7*s,[.62,.56,1],.1+.25*(V.tier?V.tier.night:0));
+  if(Math.random()<fdt*14){_w.set(V.rnd(-.4,.4),V.rnd(.05,.25),V.rnd(-.4,.4)).applyMatrix4(_R);V.PA.add(_w.x,_w.y,_w.z,V.rnd(-.1,.1),V.rnd(.15,.4),V.rnd(-.1,.1),V.rnd(.6,1),.11,.02,.78,.72,1,.55,0,1.5)}
+};
+// shield goblin: waddles on short legs with the sword swinging; when hit it braces behind the shield
+DRAW.perisai=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,st=Math.sin(ph),gd=Math.min(1,(ev.fl||0)*1.6);
+  V.M(x,y+Math.abs(st)*.05*s,z,st*.07,yaw,-.04-gd*.08,s,s,s,_R);
+  K.m_per.push(_R,c[0],c[1],c[2]);K.m_per_g.push(_R,c[0]*1.3,c[1]*1.3,c[2]*1.3);
+  for(const sd of[1,-1])V.put(K.m_per_l,_R,0,.26,.15*sd,0,0,Math.sin(ph+(sd>0?0:Math.PI))*.6,1,1,1,c[0],c[1],c[2]);
+  V.put(K.m_per_s,_R,.31+gd*.06,.5+Math.sin(ph*.5)*.015,-.3+gd*.13,0,.32-gd*.32,0,1,1,1,c[0],c[1],c[2]);
+  V.put(K.m_per_w,_R,.2,.48,.34,0,0,-.55+st*.3+gd*.6,1,1,1,c[0],c[1],c[2]);
+};
+// king slime: slow heavy hops that squash on landing, a crown that lands a beat late, bubbles inside;
+// for "summon" it gulps, then spits small slimes
+DRAW.rajalendir=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.55,up=Math.max(0,Math.sin(p)),dn=Math.max(0,-Math.sin(p)),sm=abK(ev,"summon",1.1);
+  let sy=1+up*.1-dn*.17+Math.sin(ph*4)*.025*dn,lift=up*.26;
+  if(sm>=0){const sq=V.smooth(0,.3,sm)*(1-V.smooth(.3,.4,sm)),st=V.smooth(.3,.4,sm)*(1-V.smooth(.4,1,sm)),k=1-sq-st;sy=sy*k+.66*sq+1.32*st;lift*=k}
+  const sxz=1/Math.sqrt(sy);
+  V.M(x,y+lift*s,z,0,yaw,Math.sin(p*2)*.03,s*sxz,s*sy,s*sxz,_R);
+  K.m_rl_k.push(_R,c[0],c[1],c[2]);K.m_rl.push(_R,c[0],c[1],c[2]);K.m_rl_f.push(_R,c[0],c[1],c[2]);
+  const bl=((ph*.1+ev.id*.37)%3)<.06?.12:1;V.put(K.m0e,_R,0,.4*(1-bl),0,0,0,0,1,bl,1,c[0],c[1],c[2]);
+  V.M(x,y+(lift+.57*sy+Math.max(0,Math.sin(p-.7))*.05)*s,z,.16+Math.sin(p*2+.6)*.07,yaw,0,s,s,s,_P);K.m_rl_c.push(_P,c[0],c[1],c[2]);
+  aura(x,z,s,[.45,1,.35]);
+  if(!A.icon&&Math.random()<fdt*5){_w.set(V.rnd(-.25,.25),V.rnd(.1,.3),V.rnd(-.25,.25)).applyMatrix4(_R);V.PN.add(_w.x,_w.y,_w.z,0,.35,0,.9,.05,.04,.85,1,.75,.7,0,.5)}
+};
+// giant scorpion: eight legs in a walking gait, snapping pincers, a tail that curls over the back and
+// strikes now and then; with e.ab "burrow" it sinks into a travelling sand mound and only the sting shows
+const KJ_LEG=[[.27,.55],[.14,.2],[.01,-.15],[-.12,-.48]];
+DRAW.kalajengking=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,bw=ev.bw||0,g=ph*1.3;
+  V.M(x,y+(Math.sin(g*2)*.008-bw*.46)*s,z,0,yaw,0,s,s,s,_R);
+  K.m_kj.push(_R,c[0],c[1],c[2]);
+  for(let i=0;i<4;i++){const[hx,a]=KJ_LEG[i];for(const sd of[1,-1]){const q=g+((i+(sd>0?0:1))%2)*Math.PI,sw=Math.sin(q)*.24,lf=Math.max(0,Math.cos(q))*.32;
+    V.put(K.m_kj_l,_R,hx,.21,.12*sd,-lf,sd>0?a+sw:Math.PI-a-sw,0,1,1,1,c[0],c[1],c[2])}}
+  for(const sd of[1,-1]){const sw=Math.sin(ph*.45+sd)*.15,rs=.22+Math.sin(ph*.3+sd*2)*.08,op=Math.sqrt(Math.max(0,Math.sin(ph*.8+sd*1.7)));
+    V.M(.4,.24,.13*sd,sd>0?0:Math.PI,sd*sw,sd*rs,1,1,1,_L2);_P.multiplyMatrices(_R,_L2);K.m_kj_p.push(_P,c[0],c[1],c[2]);
+    V.put(K.m_kj_f,_P,.56,.03,.13,0,-op*.6,0,1,1,1,c[0],c[1],c[2])}
+  const strike=Math.pow(Math.max(0,Math.sin(ph*.22+ev.id)),10),cu=-.43+strike*.08;
+  let px=-.58,py=.26,an=2.25-strike*.7;
+  for(let i=0;i<6;i++){const L=.155-i*.008,nx=px+Math.cos(an)*L,ny=py+Math.sin(an)*L,sc=1-i*.07;
+    V.put(K.m_kj_t,_R,(px+nx)/2,(py+ny)/2,Math.sin(ph*.4-i*.5)*.03*i,0,0,an,sc,sc,sc,c[0],c[1],c[2]);px=nx;py=ny;if(i<5)an+=cu}
+  V.M(px,py,Math.sin(ph*.4-2.5)*.15,0,0,an,1,1,1,_L2);_Q.multiplyMatrices(_R,_L2);K.m_kj_s.push(_Q,c[0],c[1],c[2]);
+  const vg=1.1+.5*Math.sin(t*6+ev.id);K.m_kj_g.push(_Q,vg,vg,vg);
+  aura(x,z,s,[1,.65,.3],1-bw*.6);
+  if(bw>.02){V.M(x,y,z,0,yaw,0,s*bw*.75,s*(.6+.4*bw)*(1+Math.sin(ph*2.6)*.06)*.75,s*bw*.75,_P);K.m_kj_m.push(_P,1,1,1)}
+  if(A.icon)return;
+  if(bw>.2&&Math.random()<fdt*18*bw){const a=Math.random()*6.28;V.PN.add(x+Math.cos(a)*.5*s,y+.05,z+Math.sin(a)*.4*s,Math.cos(a)*.4,V.rnd(.3,.7),Math.sin(a)*.4,.9,.12,.4,.8,.66,.45,.55,.6,1.5)}
+  if(bw<.5&&Math.random()<fdt*3){_w.set(.19,-.15,0).applyMatrix4(_Q);V.PA.add(_w.x,_w.y,_w.z,0,-.2,0,.6,.06,.02,.6,1,.4,.9,3,.5)}
+};
+// yeti: a lumbering walk with swinging arms, frosty breath and its own little snowfall; for "stomp" it
+// raises both fists and pounds the ground
+DRAW.yeti=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.75,st=Math.sin(p),sp=abK(ev,"stomp",1.15);
+  let bob=Math.abs(st)*.05,lean=-.06,up=0,slam=0;
+  if(sp>=0){up=V.smooth(0,.4,sp)*(1-V.smooth(.43,.47,sp));slam=V.smooth(.43,.47,sp)*(1-V.smooth(.55,1,sp));bob+=up*.16-slam*.05;lean+=up*.2-slam*.32}
+  V.M(x,y+bob*s,z,st*.06*(1-up),yaw,lean,s,s,s,_R);
+  K.m_yt.push(_R,c[0],c[1],c[2]);K.m_yt_g.push(_R,c[0]*1.2,c[1]*1.2,c[2]*1.2);
+  for(const sd of[1,-1]){
+    V.put(K.m_yt_l,_R,0,.3,.22*sd,0,0,Math.sin(p+(sd>0?0:Math.PI))*.45*(1-up),1,1,1,c[0],c[1],c[2]);
+    const sw=Math.sin(p+(sd>0?Math.PI:0))*.42+.12;
+    V.put(K.m_yt_a,_R,.06,.92,.5*sd,-(.14+up*.25)*sd,0,sw*(1-up-slam)+2.75*up+.35*slam,1,1,1,c[0],c[1],c[2])}
+  aura(x,z,s,[.6,.85,1]);
+  if(A.icon)return;
+  if(Math.random()<fdt*.9){_w.set(.52,.66,0).applyMatrix4(_R);const dx=Math.cos(yaw),dz=-Math.sin(yaw);
+    for(let i=0;i<4;i++)V.PN.add(_w.x,_w.y,_w.z,dx*V.rnd(.4,.8)+V.rnd(-.1,.1),V.rnd(0,.2),dz*V.rnd(.4,.8)+V.rnd(-.1,.1),1.1,.07,.3,.92,.96,1,.5,-.05,1.8)}
+  if(Math.random()<fdt*10)V.PN.add(x+V.rnd(-.8,.8)*s,y+V.rnd(1.2,1.6)*s,z+V.rnd(-.8,.8)*s,V.rnd(-.1,.1),-.6,V.rnd(-.1,.1),1.6,.05,.03,.95,.97,1,.9,0,.3);
+};
+// fire dragon: a hovering head that looks around, a body of plates that follows the road with a slither,
+// bat wings and a burning tail. "breath" rears up and pours fire at a target; e.ab "enrage" makes it glow
+const NG_N=9,NG=Array.from({length:NG_N+1},()=>({x:0,y:0,z:0,sc:1}));
+DRAW.naga=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.5,sp=.27*s,br=abK(ev,"breath",1.6),rg=ev.rg||0,g=V.geo,path=!A.icon&&ev.vd!=null&&g;
+  const rear=br<0?0:V.smooth(0,.2,br)*(1-V.smooth(.2,.3,br)),pour=br<0?0:V.smooth(.2,.3,br)*(1-V.smooth(.78,.95,br));
+  const hot=1+rg*(.3+.2*Math.sin(t*9)),cr=c[0]*hot,cg=c[1]*(1+rg*.08),cb=c[2]*(1-rg*.15);
+  const P=NG,cy=Math.cos(yaw),sy=Math.sin(yaw);P[0].x=x;P[0].y=y+(.42+Math.sin(p)*.07+rear*.25)*s;P[0].z=z;
+  for(let i=1;i<=NG_N;i++){const q=P[i],wave=Math.sin(p*1.2-i*.7)*.16,hy=(.4+Math.sin(p-i*.6)*.08)*s*(1-i*.035);q.sc=1-i*.062;
+    if(path){const d=ev.vd-i*sp,dd=Math.max(0,d),a=gm().posIn(g,dd),b=gm().posIn(g,dd+.25),dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,off=(ev.off||0)+wave;
+      q.x=wx(a[0]-dy/L*off);q.z=wz(a[1]+dx/L*off);q.y=Math.max(0,V.groundAt(a[0],a[1]))+hy;if(d<0)q.sc*=V.clamp(1+d/.8,0,1)}
+    else{const bx=-i*sp*.92,bz=wave*s;q.x=x+bx*cy+bz*sy;q.z=z-bx*sy+bz*cy;q.y=y+hy}}
+  const fl=Math.sin(ph*.55+ev.id)*.6+.3;
+  for(let i=1;i<=NG_N;i++){const q=P[i],f=P[i-1];if(q.sc<.02)continue;
+    const qy=Math.atan2(-(f.z-q.z),f.x-q.x),pt=Math.atan2(f.y-q.y,Math.hypot(f.x-q.x,f.z-q.z)),k=s*q.sc;
+    V.M(q.x,q.y,q.z,0,qy,pt,k,k,k,_P);K.m_ng_b.push(_P,cr,cg,cb);
+    if(i===1){V.put(K.m_ng_w,_P,-.05,.18,.16,-fl,-.25,0,1.5,1.5,1.5,cr,cg,cb);V.put(K.m_ng_w,_P,-.05,.18,-.16,Math.PI+fl,.25,0,1.5,1.5,1.5,cr,cg,cb)}
+    if(i===NG_N){K.m_ng_t.push(_P,cr,cg,cb);
+      if(!A.icon){_w.set(-.62,0,0).applyMatrix4(_P);const ff=(.85+.3*Math.sin(t*19+ev.id))*k;V.M(_w.x,_w.y,_w.z,0,t*3,0,3.4*ff,4.2*ff,3.4*ff,_B);K.flame.push(_B,1.3,1,.9);
+        if(Math.random()<fdt*14)V.PA.add(_w.x,_w.y,_w.z,V.rnd(-.15,.15),V.rnd(.4,.8),V.rnd(-.15,.15),.6,.09,.02,1,V.rnd(.45,.7),.2,1,-.2,1,1)}}}
+  // the head turns toward the breath's target, rears back, then lunges as the fire pours out
+  let tw=0;if(br>=0&&ev.abX!=null){tw=Math.atan2(-(ev.abZ-z),ev.abX-x)-yaw;while(tw>Math.PI)tw-=Math.PI*2;while(tw<-Math.PI)tw+=Math.PI*2}
+  const turn=Math.max(rear,pour),hy=yaw+tw*turn+Math.sin(p*.6)*.12*(1-turn),pitch=Math.sin(p)*.06+rear*.45-pour*.22;
+  V.M(x,P[0].y,z,0,hy,pitch,s,s,s,_R);K.m_ng_h.push(_R,cr,cg,cb);
+  V.put(K.m_ng_j,_R,0,-.1,0,0,0,-(.06+Math.sin(ph*.7)*.04+rear*.25+pour*.5),1,1,1,cr,cg,cb);
+  const eg=1.2+rg*.8+pour*.6;K.m_ng_g.push(_R,eg,eg,eg);
+  aura(x,z,s,[1,.45,.2]);
+  if(A.icon)return;
+  if(!ev.sg)ev.sg=P.map(()=>[0,0,0]);P.forEach((q,i)=>{ev.sg[i][0]=q.x;ev.sg[i][1]=q.y;ev.sg[i][2]=q.z});
+  _w.set(.66,-.12,0).applyMatrix4(_R);const mx=_w.x,my=_w.y,mz=_w.z;
+  if(rear>.05)glowAt(mx,my,mz,(.4+rear*.6)*s,[1,.6,.25],.7*rear);
+  if(pour>.05){let dx=Math.cos(hy),dz=-Math.sin(hy),dy=-.3;
+    if(ev.abX!=null){const tx=ev.abX-mx,tz=ev.abZ-mz,L=Math.hypot(tx,tz)||1;dx=tx/L;dz=tz/L;dy=(.3-my)/L}
+    const n=Math.ceil(fdt*260*pour);
+    for(let i=0;i<n;i++){const v=V.rnd(5.5,7.5);V.PA.add(mx,my,mz,dx*v+V.rnd(-.4,.4),dy*v+V.rnd(-.2,.5),dz*v+V.rnd(-.4,.4),V.rnd(.35,.5),.12,.55*s,1,V.rnd(.42,.78),.16,1,-.8,1.4,0)}
+    if(Math.random()<fdt*30)V.PN.add(mx+dx*1.4,my,mz+dz*1.4,dx*2,.6,dz*2,1.2,.2,.8,.3,.27,.26,.45,-.2,1.2);
+    glowAt(mx,my,mz,1.1*s,[1,.6,.25],.85*pour)}
+  if(rg>.1&&Math.random()<fdt*25*rg){const q=P[1+Math.floor(Math.random()*NG_N)];V.PA.add(q.x+V.rnd(-.2,.2),q.y+V.rnd(0,.3),q.z+V.rnd(-.2,.2),0,V.rnd(.5,1),0,.8,.08,.02,1,.55,.2,1,-.3,1,1)}
+};
 // used by the icon renderer: draws one monster into whatever kit set is active
 A.drawModel=(ev,x,y,z,yaw,ph,s)=>{A.icon=true;try{drawMonster(ev,x,y,z,yaw,ph,s,[1,1,1])}finally{A.icon=false}};
 const _bq=new THREE.Vector3();
@@ -218,25 +425,29 @@ function syncEnemies(S,dt){
     if(!ev){ev={id:e.id,t:e.t,vd:e.d,yaw:0,ph:H(e.id,3)*6,fl:0,hp:e.hp,spawn:A.fresh?1:0,off:(H(e.id,7)-.5)*.22,tx:0,ty:0,y:0,sl:0};enemies.set(e.id,ev);
       const p=gm().posIn(g,e.d),p2=gm().posIn(g,e.d+.3);ev.yaw=Math.atan2(-(p2[1]-p[1]),p2[0]-p[0]);
       if(!A.fresh&&V.portal&&e.d<.6){const P=V.portal;fx("glow",P.x,P.y,P.z,.4,.6,1.8,P.col,.8);puff(V.PA,10,P.x+.2,P.y,P.z,1,.6,.5,.1,.03,P.col,1,0,2);
-        if(A.isBoss(e.t)){V.shake(.5);fx("ring",P.x+.5,.08,P.z,1,.4,3,[1,.4,.35],1);say("v:spawn",{boss:true})}}}
+        if(A.isBoss(e.t)){V.shake(.5);fx("ring",P.x+.5,.08,P.z,1,.4,3,[1,.4,.35],1);say("v:spawn",{boss:true})}}
+      else if(!A.fresh&&e.d>=.6){const p=gm().posIn(g,e.d),X=wx(p[0]),Z=wz(p[1]);   // appeared mid-road (summoned)
+        puff(V.PN,8,X,.25,Z,1,1.2,.5,.1,.05,SC((A.enOf(e.t)||{}).col||"#ffffff"),.8,4,1.5);fx("ringN",X,.08,Z,.35,.15,.8,[1,1,1],.6)}}
     ev.t=e.t;ev.sl=e.sl;
-    const sp=gm().spd(e)*speed;
+    const sp=spdOf(e)*speed;
     if(S.ph==="wave")ev.vd+=sp*dt;
     ev.vd=V.damp(ev.vd,e.d,5,dt);if(Math.abs(ev.vd-e.d)>1.2)ev.vd=e.d;
     if(e.hp<ev.hp-.01&&!A.demo&&ev.fl<.2&&!projs.some(p=>!p.done&&Math.abs(p.tx-ev.tx)<.6&&Math.abs(p.ty-ev.ty)<.6))ev.fl=.8;
     ev.hp=e.hp;ev.fl=Math.max(0,ev.fl-dt*6);ev.spawn=Math.min(1,ev.spawn+dt*3);
     ev.ph+=dt*(A.modelOf(e.t)==="kilat"?14:7)*speed*(e.sl>0?.45:1)*(S.ph==="wave"?1:.35);
     place(ev,dt);
+    const ab=e.ab||null;if(ab!==(ev.ab||null)){if(!A.fresh)abState(ev,ev.ab||null,ab);ev.ab=ab}
+    ev.bw=A.fresh?(ab==="burrow"?1:0):V.damp(ev.bw||0,ab==="burrow"?1:0,4,dt);ev.rg=V.damp(ev.rg||0,ab==="enrage"?1:0,3,dt);
     const s=sizeOf(e.t)*V.ease.back(ev.spawn)*(1+ev.fl*.14);
     drawMonster(ev,ev.x,ev.y,ev.z,ev.yaw,ev.ph,s,tint(ev));
-    if(ev.sl>0&&Math.random()<dt*6)V.PN.add(ev.x+V.rnd(-.2,.2),ev.y+heightOf(e.t),ev.z+V.rnd(-.2,.2),0,-.2,0,.8,.05,.03,.9,.97,1,.9,0,.5);
-    const mh=(gm().EN[e.t]||{hp:1}).hp*(S.wm||1),f=V.clamp(e.hp/mh,0,1);
-    if(!A.isBoss(e.t)&&f<.999&&!A.demo)hpBar(ev.x,ev.y+heightOf(e.t)+.16,ev.z,f,Math.max(.42,sizeOf(e.t)*.8));
+    if(ev.sl>0&&ev.bw<.5&&Math.random()<dt*6)V.PN.add(ev.x+V.rnd(-.2,.2),ev.y+heightOf(e.t),ev.z+V.rnd(-.2,.2),0,-.2,0,.8,.05,.03,.9,.97,1,.9,0,.5);
+    const mh=(A.enOf(e.t)||{hp:1}).hp*(S.wm||1),f=V.clamp(e.hp/mh,0,1);
+    if(!A.isBoss(e.t)&&f<.999&&!A.demo&&ev.bw<.5)hpBar(ev.x,ev.y+heightOf(e.t)+.16,ev.z,f,Math.max(.42,sizeOf(e.t)*.8));
     if(A.modelOf(e.t)==="kilat"&&Math.random()<dt*20)V.PA.add(ev.x,ev.y+.32,ev.z,0,0,0,.3,.07,.02,1,.9,.5,.5,0,0);
   }
   for(const[id,ev]of enemies)if(!seen.has(id)){enemies.delete(id);
     const leak=ev.vd>g.PLEN-.7,delay=leak?0:landsIn(ev.tx,ev.ty);
-    corpses.push({ev,at:t+delay,leak,sp:gm().spd({t:ev.t,sl:0,sf:1})*speed})}
+    corpses.push({ev,at:t+delay,leak,sp:spdOf({t:ev.t,sl:0,sf:1})*speed})}
 }
 function place(ev,dt){
   const g=V.geo,p=gm().posIn(g,ev.vd),a=gm().posIn(g,ev.vd+.28),dx=a[0]-p[0],dy=a[1]-p[1],L=Math.hypot(dx,dy)||1;
@@ -317,23 +528,40 @@ function fireworks(dt){
 }
 
 // ---------- the menu's little battle (visual only, nothing reaches the logic) ----------
+// In the gallery (#galeri) it parades every model, the extras included, and the bosses use their abilities.
 let demo=null;
 function demoState(){
-  const g=V.geo,EN=gm().EN,T=[];let i=0;const taken=new Set();
+  const g=V.geo,T=[];let i=0;const taken=new Set();
   for(const k of g.PATH){if(i++%4!==1)continue;const[x,y]=k.split(",").map(Number);
     for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]]){const nx=x+dx,ny=y+dy,kk=nx+","+ny;if(nx<0||ny<0||nx>=V.COLS||ny>=V.ROWS||g.PATH.has(kk)||taken.has(kk))continue;
       taken.add(kk);const n=T.length;T.push({x:nx,y:ny,t:n%4,l:1+(n*7)%3,o:n%4,cd:H(n,3)});break}
     if(T.length>=9)break}
-  return{ph:"wave",sp:1,wm:1,rg:0,lv:20,w:1,P:[{c:0},{c:1},{c:2},{c:3}],T,E:[],nid:1,spawnCd:0,order:[0,1,0,2,1,0,0,2,1,3].filter(x=>x<EN.length)};
+  const gal=!!V.gallery,n=A.types(),reg=[],boss=[];for(let k=0;k<n;k++)(A.isBoss(k)?boss:reg).push(k);
+  let order=[0,1,0,2,1,0,0,2,1,3].filter(x=>x<gm().EN.length);
+  if(gal&&reg.length){order=[];let r=0;for(const b of boss)order.push(reg[r++%reg.length],reg[r++%reg.length],b);if(!boss.length)order=reg}
+  return{ph:"wave",sp:1,wm:1,rg:0,lv:20,w:1,P:[{c:0},{c:1},{c:2},{c:3}],T,E:[],nid:1,oi:0,spawnCd:0,order,gal};
+}
+function demoSpawn(S,ti,d){const hp=A.enOf(ti).hp*(S.gal?.5:.35),e={id:S.nid++,t:ti,d:d||0,hp,hp0:hp,sl:0,sf:1,cd:2.2};S.E.push(e);return e}
+// what each boss does in the gallery, with the ability events the logic would send; returns the cooldown
+function demoAbility(S,e){
+  const m=A.modelOf(e.t),g=V.geo,p=gm().posIn(g,e.d);
+  if(m==="rajalendir"){A.onAbility({t:e.t,k:"summon",x:p[0],y:p[1],id:e.id});later.push({at:t+.45,fn:()=>{if(demo===S)for(let j=0;j<3;j++)demoSpawn(S,0,Math.max(0,e.d-.35+j*.35))}});return 5.5}
+  if(m==="kalajengking"){if(e.ab){e.ab=null;return 4.5}e.ab="burrow";return 2.6}
+  if(m==="yeti"){A.onAbility({t:e.t,k:"stomp",x:p[0],y:p[1],id:e.id,r:1.8});
+    later.push({at:t+.52,fn:()=>{if(demo!==S)return;const q=gm().posIn(g,e.d);for(const tw of S.T)if(Math.hypot(tw.x+.5-q[0],tw.y+.5-q[1])<=2.3)tw.fz=2.8}});return 6}
+  if(m==="naga"){let best=null,bd=3.2;for(const tw of S.T){const dd=Math.hypot(tw.x+.5-p[0],tw.y+.5-p[1]);if(dd<bd){bd=dd;best=tw}}
+    if(!best)return .4;A.onAbility({t:e.t,k:"breath",x:p[0],y:p[1],tx:best.x+.5,ty:best.y+.5,r:.8,id:e.id});later.push({at:t+.62,fn:()=>{if(demo===S)best.fz=2.6}});return 5}
+  return 99;
 }
 function demoTick(dt){
-  const S=demo,g=V.geo,EN=gm().EN;
-  S.spawnCd-=dt;if(S.spawnCd<=0&&S.E.length<12){const ti=S.order[S.nid%S.order.length];S.E.push({id:S.nid++,t:ti,d:0,hp:EN[ti].hp*.35,sl:0,sf:1});S.spawnCd=A.isBoss(ti)?2.6:.9}
-  for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];e.sl=Math.max(0,e.sl-dt);e.d+=gm().spd(e)*dt;if(e.d>=g.PLEN)S.E.splice(i,1)}
-  for(const tw of S.T){tw.cd-=dt;if(tw.cd>0)continue;const st=gm().stat(tw.t,tw.l),r2=st.range*st.range;let best=null,bd=-1;
-    for(const e of S.E){const p=gm().posIn(g,e.d),dx=p[0]-tw.x-.5,dy=p[1]-tw.y-.5;if(dx*dx+dy*dy<=r2&&e.d>bd){bd=e.d;best=e}}
+  const S=demo,g=V.geo;
+  S.spawnCd-=dt;if(S.spawnCd<=0&&S.E.length<(S.gal?10:12)){const ti=S.order[S.oi++%S.order.length];demoSpawn(S,ti,0);S.spawnCd=A.isBoss(ti)?(S.gal?6:2.6):(S.gal?3.4:.9)}
+  for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];e.sl=Math.max(0,e.sl-dt);e.d+=spdOf(e)*dt;if(e.d>=g.PLEN){S.E.splice(i,1);continue}
+    if(S.gal&&A.isBoss(e.t)){e.cd-=dt;if(e.cd<=0&&e.d>1)e.cd=demoAbility(S,e);if(A.modelOf(e.t)==="naga"&&!e.ab&&e.hp<e.hp0*.5)e.ab="enrage"}}
+  for(const tw of S.T){if(tw.fz>0){tw.fz=Math.max(0,tw.fz-dt);continue}tw.cd-=dt;if(tw.cd>0)continue;const st=gm().stat(tw.t,tw.l),r2=st.range*st.range;let best=null,bd=-1;
+    for(const e of S.E){if(e.ab==="burrow"||(S.gal&&e.id===feat.id))continue;const p=gm().posIn(g,e.d),dx=p[0]-tw.x-.5,dy=p[1]-tw.y-.5;if(dx*dx+dy*dy<=r2&&e.d>bd){bd=e.d;best=e}}
     if(!best)continue;tw.cd=st.rate*1.3;const p=gm().posIn(g,best.d);A.onShot({t:tw.t,x1:tw.x+.5,y1:tw.y+.5,x2:p[0],y2:p[1]});
-    for(const e of S.E){const q=gm().posIn(g,e.d);if(e===best||(st.splash&&Math.hypot(q[0]-p[0],q[1]-p[1])<=st.splash)){e.hp-=st.dmg;if(st.slow){e.sl=st.slowDur;e.sf=st.slow}}}
+    for(const e of S.E){if(e.ab==="burrow")continue;const q=gm().posIn(g,e.d);if(e===best||(st.splash&&Math.hypot(q[0]-p[0],q[1]-p[1])<=st.splash)){if(!(S.gal&&e.id===feat.id))e.hp-=st.dmg;if(st.slow){e.sl=st.slowDur;e.sf=st.slow}}}
     for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];if(e.hp<=0){const q=gm().posIn(g,e.d);A.onDeath({t:e.t,x:q[0],y:q[1],gold:0});S.E.splice(i,1)}}}
 }
 
@@ -346,22 +574,43 @@ function birdsTick(){
     V.put(V.K.birdw,_R,0,.02,-.04,fl,0,0,1,1,1,col.r,col.g,col.b);V.put(V.K.birdw,_R,0,.02,.04,-fl,0,0,1,1,-1,col.r,col.g,col.b)}
 }
 
+// ---------- the gallery's close-up: one monster at a time, cycling through the types ----------
+let feat={ti:-1,id:-1,at:-99},featWant=null;
+// a monster asked for from the bestiary walks alone for a while, then the parade carries on
+A.feature=ti=>{if(!demo||!demo.gal||!A.demo){featWant=ti;return}
+  demo.E.length=0;demo.spawnCd=A.isBoss(ti)?11:7;const e=demoSpawn(demo,ti,2.4);feat={ti,id:e.id,at:t}};
+A.featured=()=>{
+  if(!A.demo||!demo||!demo.gal)return null;
+  let ev=enemies.get(feat.id);
+  if(!ev){const c=corpses.find(c=>c.ev.id===feat.id);if(c)return c.ev;if(t-feat.at<.3)return null}   // stay for the death; a monster asked for appears next frame
+  if(!ev||t-feat.at>(A.isBoss(ev.t)?9:5.5)){
+    const n=A.types();let pick=null;
+    for(let k=1;k<=n&&!pick;k++){const ti=(feat.ti+k)%n;for(const e of enemies.values())if(e.t===ti&&e.vd>1.3&&e.vd<V.geo.PLEN-4&&e.spawn>=1&&(!pick||e.vd<pick.vd))pick=e}
+    if(pick){feat={ti:pick.t,id:pick.id,at:t};ev=pick}
+  }
+  return ev||null;
+};
+
 // ---------- per frame ----------
-A.reset=()=>{towers.clear();enemies.clear();corpses=[];sold=[];projs=[];bits=[];fxs=[];later=[];lastPh=null;A.fresh=true;demo=null;V.PA&&V.PA.clear();V.PN&&V.PN.clear()};
+A.reset=()=>{towers.clear();enemies.clear();corpses=[];sold=[];projs=[];bits=[];fxs=[];later=[];lastPh=null;A.fresh=true;demo=null;feat={ti:-1,id:-1,at:-99};V.PA&&V.PA.clear();V.PN&&V.PN.clear()};
 A.fresh=true;
 A.tick=(dt,mode)=>{
-  t+=dt;
+  t+=dt;fdt=dt;
   for(let i=later.length-1;i>=0;i--)if(t>=later[i].at){const f=later[i].fn;later.splice(i,1);f()}
   let S=gm().S;
   const demoNow=mode!=="game"||!S;
   if(demoNow!==A.demo){A.reset()}  // switching between the menu battle and a real game starts clean
   A.demo=demoNow;
-  if(A.demo){if(!demo||demo.g!==V.geo){A.reset();demo=demoState();demo.g=V.geo}demoTick(dt);S=demo}
+  if(A.demo){if(!demo||demo.g!==V.geo||demo.gal!==!!V.gallery){A.reset();demo=demoState();demo.g=V.geo}
+    if(featWant!=null&&demo.gal){const w=featWant;featWant=null;A.feature(w)}
+    demoTick(dt);S=demo}
   syncTowers(S,dt);syncEnemies(S,dt);A.fresh=false;corpsesTick(S,dt);if(!V.RM)birdsTick();projTick(dt);bitsTick(dt);fxTick(dt);lightTick(dt);
   if(!A.demo){fortTick(S,dt);if(S.ph==="win")fireworks(dt)}
   const occ=new Set();for(const r of towers.values())occ.add(r.x+","+r.y);V.decorTick(occ,dt);
   return S;
 };
+// a tap on the board (touch screens have no hover to show where it landed)
+A.tap=(tx,ty)=>{const h=V.groundAt(tx+.5,ty+.5);fx("ringN",wx(tx+.5),h+.05,wz(ty+.5),.35,.25,.95,[1,1,1],.75)};
 A.enemies=enemies;A.towers=towers;
 A.bossOf=S=>{let b=null;for(const e of S.E)if(A.isBoss(e.t)&&(!b||e.d>b.d))b=e;return b};
 })();

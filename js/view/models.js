@@ -35,9 +35,18 @@ gl_Position=projectionMatrix*mvPosition;`);
     glow:new THREE.MeshBasicMaterial({vertexColors:true}),
     wing:std({transparent:true,opacity:.5,roughness:.25,side:THREE.DoubleSide,depthWrite:false}),
     ghost:new THREE.MeshStandardMaterial({vertexColors:true,flatShading:true,transparent:true,opacity:.55,depthWrite:false,roughness:.6,emissive:new THREE.Color(.12,.12,.12)}),
+    spirit:std({flatShading:false,transparent:true,opacity:.82,roughness:.45,depthWrite:false,emissive:new THREE.Color(.09,.07,.2)}),
+    ice:std({transparent:true,opacity:.6,roughness:.12,depthWrite:false,emissive:new THREE.Color(.05,.09,.13)}),
+    jelly:std({flatShading:false,transparent:true,opacity:.8,roughness:.16,depthWrite:false}),
     wind
   };
 };
+// a tapered cylinder between two points (legs, arms, bones)
+const _a=new THREE.Vector3(),_b=new THREE.Vector3(),_d=new THREE.Vector3(),_sq=new THREE.Quaternion(),UP=new THREE.Vector3(0,1,0);
+function seg(b,p1,p2,r1,r2,col,sides){
+  _a.set(p1[0],p1[1],p1[2]);_b.set(p2[0],p2[1],p2[2]);_d.subVectors(_b,_a);const len=_d.length();_d.normalize();_sq.setFromUnitVectors(UP,_d);
+  b.addM(G.cyl(r2,r1,1,sides||5),col,new THREE.Matrix4().compose(_a.clone().add(_b).multiplyScalar(.5),_sq,new THREE.Vector3(1,len,1)));
+}
 
 // a little guardian; std parts into b, owner-coloured parts (white, tinted per player) into c
 function chibi(b,c,ox,oz,s){
@@ -155,7 +164,7 @@ V.makeModels=()=>{
   b.add(G.lathe([[0,0],[.42,0],[.5,.07],[.52,.19],[.47,.35],[.36,.49],[.2,.59],[0,.62]],14),(x,y)=>y<.1?"#5f9f45":y>.42?"#b6ea8a":"#8fd16a");
   b.add(G.sph(.09,8,6),"#ffffff",-.12,.5,.16,0,0,0,1.4,.7,1);
   b.add(G.tor(.075,.016,3,8,Math.PI),INK,.47,.21,0,0,Math.PI/2,Math.PI);
-  V.defKit("m0",b.build(),M.gloss,320);
+  const slimeGeo=b.build();V.defKit("m0",slimeGeo,M.gloss,320);
   b=B();for(const s of[1,-1]){b.add(G.sph(.11,8,6),"#ffffff",.4,.4,.15*s);b.add(G.sph(.055,6,5),INK,.49,.41,.15*s);b.add(G.sph(.02,4,3),"#ffffff",.53,.44,.13*s)}
   V.defKit("m0e",b.build(),M.std,320);
   // wasp
@@ -201,6 +210,98 @@ V.makeModels=()=>{
   // anything the logic adds without a model: a tinted blob with eyes
   b=B();b.add(G.ico(.5,1),"#ffffff",0,.5,0);for(const s of[1,-1]){b.add(G.sph(.1,6,5),"#ffffff",.42,.6,.16*s);b.add(G.sph(.05,6,4),INK,.5,.61,.16*s)}
   V.defKit("mx",b.build(),M.std,200);
+
+  // ---------- the second bestiary: ghost, shield goblin and the other bosses ----------
+  // ghost: a sheet with a rippling hem, see-through, with a dark face
+  {const g=new THREE.LatheGeometry([[.58,.06],[.55,.14],[.49,.3],[.46,.45],[.46,.62],[.41,.77],[.31,.89],[.17,.96],[0,.98]].map(p=>new THREE.Vector2(p[0],p[1])),18);
+    const P=g.attributes.position;for(let i=0;i<P.count;i++){const y=P.getY(i);if(y<.2){const a=Math.atan2(P.getZ(i),P.getX(i));P.setY(i,y+Math.sin(a*6)*.06*(.2-y)/.14)}}
+    g.computeVertexNormals();
+    b=B();b.add(g,(x,y)=>y<.3?"#958be0":y>.75?"#e2ddff":"#beb6f4");
+    for(const s of[1,-1])b.add(G.cap(.07,.12,2,6),"#c6bff6",.05,.5,.42*s,.9*s,0,.3);
+    V.defKit("m_hantu",b.build(),M.spirit,200,false);
+    b=B();for(const s of[1,-1]){b.add(G.sph(.095,8,6),"#1d1530",.42,.67,.15*s,0,0,0,.5,1.3,1);b.add(G.sph(.022,4,3),"#ffffff",.465,.73,.13*s)}
+    b.add(G.sph(.075,8,6),"#1d1530",.45,.46,0,0,0,0,.5,1.3,1);
+    V.defKit("m_hantu_f",b.build(),M.std,200,false)}
+  // shield goblin: armoured body, helmet with a plume, a kite shield on the left and a short sword
+  b=B();
+  b.add(G.sph(.36,10,8),"#6c8a52",0,.5,0,0,0,0,1,.95,.95);
+  b.add(new THREE.CylinderGeometry(.37,.4,.34,10,1,true,0,Math.PI),["#9aa6bd","#8a96ac"],0,.47,0);
+  b.add(G.tor(.37,.035,4,12),"#5a3d22",0,.31,0,Math.PI/2,0,0);b.add(G.box(.05,.06,.08),GOLD,.37,.31,0);
+  b.add(G.sph(.24,10,8),"#7d9c5f",0,.86,0);
+  for(const s of[1,-1])b.add(G.cone(.065,.24,5),"#7d9c5f",0,.92,.25*s,(Math.PI/2-.35)*s,0,0);
+  b.add(G.hemi(.27,10,5),["#8a96ac","#9aa6bd"],0,.9,0);b.add(G.tor(.27,.025,3,14),"#6d7891",0,.9,0,Math.PI/2,0,0);
+  b.add(G.box(.05,.07,.28),"#22252e",.235,.86,0);b.add(G.cone(.035,.1,4),"#7d9c5f",.27,.78,0,0,0,-Math.PI/2);
+  b.add(G.sph(.09,6,5),"#c0443c",-.04,1.2,0,0,0,.5,1.6,.6,.5);
+  for(const s of[1,-1]){seg(b,[0,.68,.28*s],[.17,.5,.33*s],.065,.055,"#6c8a52");b.add(G.sph(.065,6,5),"#7d9c5f",.19,.48,.34*s);b.add(G.hemi(.12,8,3),["#8a96ac","#9aa6bd"],0,.68,.29*s,.55*s,0,0)}
+  V.defKit("m_per",b.build(),M.std,200);
+  b=B();for(const s of[1,-1])b.add(G.sph(.026,5,4),"#ffd84a",.265,.865,.075*s);V.defKit("m_per_g",b.build(),M.glow,200,false);
+  {const sh=new THREE.Shape();sh.moveTo(-.22,.3);sh.lineTo(.22,.3);sh.lineTo(.22,0);sh.quadraticCurveTo(.2,-.26,0,-.4);sh.quadraticCurveTo(-.2,-.26,-.22,0);sh.closePath();
+    b=B();b.add(new THREE.ExtrudeGeometry(sh,{depth:.045,bevelEnabled:false,curveSegments:4}),"#c8d0de",0,0,0,0,Math.PI/2,0);
+    b.add(G.box(.012,.52,.07),"#c0443c",.05,-.03,0);b.add(G.box(.012,.07,.34),"#c0443c",.05,.12,0);b.add(G.sph(.045,6,4),GOLD,.06,.12,0);
+    V.defKit("m_per_s",b.build(),M.std,200)}
+  b=B();b.add(G.box(.06,.36,.02),"#dfe6ee",0,.26,0);b.add(G.cone(.03,.07,4),"#dfe6ee",0,.47,0,0,Math.PI/4,0,1,1,.4);
+  b.add(G.box(.16,.03,.04),GOLD,0,.075,0);b.add(G.cyl(.018,.018,.12,5),"#5a3d22",0,0,0);b.add(G.sph(.028,5,4),GOLD,0,-.07,0);
+  V.defKit("m_per_w",b.build(),M.std,200);
+  b=B();b.add(G.cap(.07,.12,2,6),"#3c4252",0,-.1,0);b.add(G.box(.16,.06,.1),"#2a2e38",.03,-.22,0);V.defKit("m_per_l",b.build(),M.std,400);
+  // king slime: the slime's shape as see-through jelly, a dark core with bubbles inside, brows, a moustache and a crown
+  V.defKit("m_rl",slimeGeo,M.jelly,40);
+  b=B();b.add(G.sph(.2,9,7),"#3f7a32",0,.24,0);for(const[x,y,z,r]of[[.12,.42,-.1,.05],[-.16,.33,.14,.04],[.05,.12,.2,.035],[-.2,.15,-.12,.045]])b.add(G.sph(r,6,4),"#d8f7b8",x,y,z);
+  V.defKit("m_rl_k",b.build(),M.std,40);
+  b=B();for(const s of[1,-1]){b.add(G.box(.06,.035,.17),"#2a3a1e",.42,.535,.15*s,-.38*s,0,0);b.add(G.sph(.085,6,5),"#4a3220",.48,.29,.08*s,-.45*s,0,0,.55,.45,1.5);b.add(G.sph(.035,5,4),"#4a3220",.46,.34,.2*s)}
+  V.defKit("m_rl_f",b.build(),M.std,40);
+  b=B();b.add(G.cyl(.24,.27,.15,10,true),GOLD,0,0,0);b.add(G.tor(.27,.025,3,12),"#c8962e",0,-.07,0,Math.PI/2,0,0);
+  for(let i=0;i<5;i++){const a=i/5*Math.PI*2;b.add(G.cone(.05,.15,4),GOLD,Math.cos(a)*.25,.14,Math.sin(a)*.25);b.add(G.sph(.035,6,4),i%2?"#3a7cff":"#ff3a5a",Math.cos(a)*.27,0,Math.sin(a)*.27)}
+  V.defKit("m_rl_c",b.build(),M.std,40);
+  // giant scorpion: plated body, eight legs, two pincers, a curling tail with a venom sting, and a sand mound for burrowing
+  const KC=["#c97b35","#b56a2a","#d38a45"];
+  b=B();b.add(G.sph(.26,10,7),KC,.16,.22,0,0,0,0,1.25,.62,1);
+  [[-.12,.24],[-.3,.22],[-.46,.2]].forEach(([x,r])=>b.add(G.sph(r,9,6),KC,x,.21,0,0,0,0,.85,.56,1));
+  for(const s of[1,-1]){b.add(G.sph(.03,5,4),"#1a1012",.36,.33,.05*s);b.add(G.cone(.03,.09,4),"#5a2a10",.46,.17,.05*s,0,0,-Math.PI/2)}
+  V.defKit("m_kj",b.build(),M.std,40);
+  b=B();seg(b,[0,0,0],[0,.13,.24],.028,.022,"#8a4a1c");seg(b,[0,.13,.24],[0,-.2,.38],.022,.012,"#6e3b14");V.defKit("m_kj_l",b.build(),M.std,320);
+  b=B();seg(b,[0,0,0],[.2,.04,.12],.04,.035,"#b56a2a");seg(b,[.2,.04,.12],[.4,.02,.1],.035,.032,"#c97b35");
+  b.add(G.sph(.1,8,6),KC,.5,.02,.1,0,0,0,1.4,.75,1);b.add(G.cone(.035,.16,5),"#6e3b14",.66,.02,.07,0,0,-Math.PI/2+.15);
+  V.defKit("m_kj_p",b.build(),M.std,80);
+  b=B();b.add(G.cone(.03,.15,5),"#6e3b14",.07,0,0,0,0,-Math.PI/2-.1);V.defKit("m_kj_f",b.build(),M.std,80);
+  b=B();b.add(G.sph(.1,8,6),KC,0,0,0,0,0,0,1.3,.9,.9);V.defKit("m_kj_t",b.build(),M.std,240);
+  b=B();b.add(G.sph(.075,7,5),"#8a2a1e",0,0,0);b.add(G.cone(.04,.2,5),"#3a1010",.1,-.07,0,0,0,-Math.PI/2-.6);V.defKit("m_kj_s",b.build(),M.std,40);
+  b=B();b.add(G.sph(.035,5,4),"#9bff6a",.19,-.15,0);V.defKit("m_kj_g",b.build(),M.glow,40,false);
+  b=B();b.add(G.hemi(.6,12,4),["#c99d5c","#b88a4e","#d3a96a"],0,0,0,0,0,0,1.3,.42,1);for(let i=0;i<5;i++)b.add(G.dod(.06),"#9c7444",Math.cos(i*1.3)*.55,.05,Math.sin(i*1.3)*.4);
+  V.defKit("m_kj_m",b.build(),M.std,40);
+  // yeti: a shaggy faceted body, blue face with fangs, curled horns, long arms and heavy feet
+  {const yg=new THREE.IcosahedronGeometry(.5,1),YP=yg.attributes.position;
+    for(let i=0;i<YP.count;i++){const x=YP.getX(i),y=YP.getY(i),z=YP.getZ(i),k=1+(V.hash(Math.round(x*97),Math.round(y*89+z*83))-.5)*.18;YP.setXYZ(i,x*k,y*k,z*k)}
+    b=B();b.add(yg,["#eef3f8","#e2e9f1","#f6f9fc"],0,.62,0,0,0,0,1,1.08,.95);
+    b.add(G.sph(.28,8,6),"#d7e3ee",.24,.5,0,0,0,0,.6,1.1,1);
+    b.add(G.sph(.22,8,6),"#8fb4d0",.36,.8,0,0,0,0,.55,.82,1);
+    b.add(G.box(.07,.05,.3),"#3a4a5a",.44,.92,0,0,0,-.15);b.add(G.box(.05,.06,.2),"#2a2030",.46,.67,0);
+    for(const s of[1,-1]){b.add(G.cone(.03,.08,4),"#ffffff",.48,.7,.06*s);b.add(G.cone(.075,.34,6),"#7a6450",-.02,1.08,.26*s,.9*s,0,.4)}
+    V.defKit("m_yt",b.build(),M.std,40)}
+  b=B();for(const s of[1,-1])b.add(G.sph(.035,5,4),"#ff9f6a",.475,.83,.08*s);V.defKit("m_yt_g",b.build(),M.glow,40,false);
+  b=B();b.add(G.cap(.13,.32,3,7),["#eef3f8","#e2e9f1"],0,-.3,0);b.add(G.sph(.15,8,6),"#e2e9f1",0,-.6,0);
+  for(let i=-1;i<=1;i++)b.add(G.cone(.025,.08,4),"#3a4a5a",.08,-.72,i*.06,0,0,Math.PI);
+  V.defKit("m_yt_a",b.build(),M.std,80);
+  b=B();b.add(G.cap(.14,.1,3,7),"#e2e9f1",0,-.12,0);b.add(G.sph(.16,8,5),"#7d8ea3",.05,-.28,0,0,0,0,1.3,.45,1);V.defKit("m_yt_l",b.build(),M.std,80);
+  // fire dragon: a horned head, glowing eyes, a long body of plated segments and bat wings
+  const NC=["#d84a30","#c8432c","#e5583a"];
+  b=B();b.add(G.sph(.28,10,7),NC,.06,0,0,0,0,0,1.3,.75,.9);b.add(G.sph(.2,8,6),NC,.36,-.04,0,0,0,0,1.3,.6,.75);
+  for(const s of[1,-1]){b.add(G.cone(.05,.34,5),"#f0d9a0",-.14,.16,.12*s,.4*s,0,1.2);b.add(G.sph(.025,4,3),"#2a0a05",.6,0,.07*s);b.add(G.cone(.014,.06,3),"#ffffff",.47,-.16,.06*s,0,0,Math.PI);
+    for(let i=0;i<3;i++)b.add(G.cone(.03,.09,4),"#f08a3a",-.05-i*.1,.05,(.2+i*.01)*s,(Math.PI/2)*s,0,0)}
+  V.defKit("m_ng_h",b.build(),M.std,40);
+  b=B();b.add(G.sph(.17,8,5),"#b53a26",.3,-.03,0,0,0,0,1.4,.4,.7);b.add(G.sph(.12,7,5),"#f6c17a",.2,-.05,0,0,0,0,1.6,.35,.6);
+  for(const s of[1,-1])b.add(G.cone(.012,.05,3),"#ffffff",.44,.02,.05*s);
+  V.defKit("m_ng_j",b.build(),M.std,40);
+  b=B();for(const s of[1,-1])b.add(G.sph(.05,6,5),"#ffe36a",.2,.1,.17*s,0,0,0,1.3,.8,.6);V.defKit("m_ng_g",b.build(),M.glow,40,false);
+  b=B();b.add(G.sph(.28,9,7),["#e5583a","#c8432c","#d84a30"],0,0,0,0,0,0,1.25,.95,1);b.add(G.sph(.2,8,5),"#f6c17a",0,-.12,0,0,0,0,1.15,.45,.85);
+  b.add(G.cone(.07,.2,4),"#f0b545",0,.3,0,0,0,.35);V.defKit("m_ng_b",b.build(),M.std,400);
+  b=B();b.add(G.cone(.13,.4,5),NC,-.2,0,0,0,0,Math.PI/2);b.add(G.oct(.2),"#8a2a1e",-.46,0,0,0,0,0,1.15,.22,.9);V.defKit("m_ng_t",b.build(),M.std,40);
+  {const ws=new THREE.Shape();ws.moveTo(0,0);ws.lineTo(-.1,.55);ws.lineTo(-.32,.42);ws.lineTo(-.45,.25);ws.lineTo(-.5,0);ws.closePath();
+    b=B();b.add(new THREE.ShapeGeometry(ws),"#8a2a1e",0,0,0,Math.PI/2,0,0);
+    for(const p of[[-.1,.55],[-.32,.42],[-.45,.25]])seg(b,[0,0,0],[p[0],0,p[1]],.018,.01,"#5a1a10");
+    V.defKit("m_ng_w",b.build(),M.cloth,80)}
+  // ice that encases a frozen tower
+  b=B();b.add(G.box(.92,1,.92),["#bfe6ff","#d8f2ff","#a9d8f2"],0,.5,0);for(let i=0;i<4;i++){const a=i*Math.PI/2+.4;b.add(G.oct(.12),"#e6f8ff",Math.cos(a)*.3,1,Math.sin(a)*.3,0,a,0,.7,1.6,.7)}
+  V.defKit("iceblock",b.build(),M.ice,130,false);
 
   // ---------- projectiles and debris ----------
   b=B();b.add(G.cyl(.012,.012,.42,4),"#d9c08a",0,0,0,0,0,-Math.PI/2);b.add(G.cone(.03,.08,4),"#e8ecf2",.23,0,0,0,0,-Math.PI/2);

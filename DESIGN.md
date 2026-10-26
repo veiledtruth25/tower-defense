@@ -64,10 +64,18 @@ Menara baru jatuh dari atas lalu memantul. Saat ditingkatkan, menara membesar se
 | Kilat | Tawon bergaris dengan sengat | Terbang dengan sayap transparan mengepak, meninggalkan jejak cahaya |
 | Kura | Kura-kura bertempurung faset | Empat kaki melangkah bergantian, kepala bergoyang |
 | Raja (bos) | Raja merah bertanduk, mahkota emas bertatah permata, jubah ungu, tongkat | Jubah berayun, langkah berat; bar HP besar di atas layar dan aura merah di tanah |
+| Hantu | Kain lavender tembus pandang dengan ujung bergelombang, mata dan mulut gelap | Melayang naik turun, condong ke depan, bergoyang, meninggalkan asap tipis. Bayangannya dilukis lembut di tanah dan ia berpendar saat malam. |
+| Perisai | Goblin hijau berzirah: helm berjambul merah, celah visor bermata kuning, perisai layang-layang bersalib merah, pedang pendek | Berjalan terhuyung, pedang berayun. Saat terkena, ia berlindung di balik perisai, dan panah memantul dengan percikan dan bunyi dentang. |
+| Raja Lendir (bos) | Lendir raksasa dari jeli tembus pandang, inti gelap dan gelembung di dalamnya, alis marah, kumis, mahkota bertatah | Lompatan berat yang memipih saat mendarat, mahkota ikut mendarat sesaat kemudian. Untuk "summon" ia mengempis lalu memuntahkan lendir kecil. |
+| Kalajengking (bos) | Kalajengking oranye berpelat dengan delapan kaki, dua capit dan ekor bersengat beracun | Kaki melangkah berselang-seling, capit menjepit, ekor melengkung dan sesekali menyengat ke depan. Saat menyelam ke pasir, hanya sengatnya yang terlihat di atas gundukan pasir yang ikut berjalan. |
+| Yeti (bos) | Raksasa putih berbulu faset, wajah biru bertaring, tanduk melengkung, lengan panjang bercakar | Langkah berat dengan lengan berayun, napas beruap dan hujan salju kecil di sekitarnya. Untuk "stomp" kedua tinju diangkat lalu dihantamkan ke tanah, dan menara di dekatnya terbungkus es. |
+| Naga Api (bos) | Kepala bertanduk dengan rahang yang bisa membuka, tubuh berpelat yang panjang, sayap kelelawar, ekor menyala | Kepala melayang dan menoleh, tubuh mengikuti jalan sambil meliuk, sayap mengepak. Untuk "breath" ia mendongak lalu menyemburkan api ke menara, meninggalkan bekas hangus. Saat mengamuk, tubuhnya menyala dan menebar bara. |
+
+Raja Lendir, Kalajengking, Yeti dan Naga Api punya aura sewarna tubuhnya di tanah. Selama belum ada di data logika, keenam model baru bisa dilihat di **galeri**: buka halaman dengan `#galeri`, atau tekan "Galeri 3D" di menu. Kamera lalu mendekati tiap monster bergiliran, dan mengetuk kartu di "Kenali musuh" menampilkan satu monster sendirian.
 
 - **Reaksi kena tembak**: monster menggembung dan berkedip putih, tepat saat proyektil mendarat.
 - **Efek lambat**: monster berwarna es, animasinya melambat, dan serpihan salju berjatuhan.
-- **Kematian tiap jenis berbeda**: lendir muncrat dan meninggalkan genangan, tawon pecah jadi percikan, tempurung kura hancur jadi kepingan, dan Raja meledak beruntun disertai hujan koin.
+- **Kematian tiap jenis berbeda**: lendir muncrat dan meninggalkan genangan, tawon pecah jadi percikan, tempurung kura hancur jadi kepingan, dan Raja meledak beruntun disertai hujan koin. Hantu menguap ke atas, perisai dan pedang goblin terlempar, mahkota Raja Lendir terpental, capit dan sengat kalajengking berhamburan, Yeti meledak jadi salju, dan Naga meledak beruntun dari kepala sampai ekor.
 
 Monster melangkah sedikit ke kiri atau ke kanan jalur, jadi rombongan tidak terlihat bertumpuk.
 
@@ -95,6 +103,20 @@ Overlay di atas papan:
 - Bar HP bos dengan jejak kerusakan.
 - Judul besar "LEVEL n TAMAT!" (dengan kembang api) atau "BENTENG RUNTUH".
 
+## Layar permainan
+
+Saat bermain, game memenuhi seluruh layar seperti game ponsel. Peta 3D ada di belakang, dan panel mengambang di atasnya:
+
+- **Bar atas**: tombol menu (☰), nyawa, emas, gelombang dan level, kode room (multiplayer), kecepatan, serta teks status gelombang.
+- **Dok menara**: empat kartu menara bergambar 3D dengan harganya, tombol bantuan bulat dengan jumlahnya, dan tombol "Mulai". Di layar tegak dok ada di bawah. Di ponsel mendatar, menara dan tombol mulai ada di kanan, dan bantuan di tepi kiri. Di tablet dan desktop, panel kanan juga menampilkan nama dan keterangan.
+- **Kartu menara terpilih** melayang di atas atau di bawah menaranya, lengkap dengan panah penunjuk, statistik, dan tombol tingkatkan atau jual.
+- **Menu permainan** berisi suara, musik, layar penuh, daftar pemain, tombol pintasan (desktop), "Lanjut main" dan "Keluar ke menu".
+- **Kartu lobi, kalah dan menang** muncul di bagian bawah area papan, di bawah judul besar.
+
+Kamera membingkai papan di area yang tidak tertutup panel, jadi tidak ada petak yang tersembunyi. Di layar sentuh, ketukan pertama di petak kosong menampilkan bayangan menara dan jangkauannya, dan ketukan kedua membangunnya. Petak yang diketuk diberi lingkaran kecil. Saat permainan dimulai dari layar sentuh, game masuk mode layar penuh kalau peramban mengizinkan, dan layar dijaga tetap menyala.
+
+Di ponsel, menu awal menampilkan pulau, lalu pilihan level dan tombol main, baru kemudian cerita dan "Kenali musuh".
+
 ## Kamera dan kelancaran
 
 - Kamera meluncur masuk ke papan saat permainan dimulai, lalu diam dengan goyangan halus. Kamera bergetar saat ada ledakan, bos muncul, atau benteng runtuh.
@@ -111,7 +133,8 @@ Semua suara dibuat dengan WebAudio. Suara diposisikan kiri-kanan sesuai letak ke
 
 - **Tembakan**: tiap menara punya bunyi sendiri.
 - **Benturan**: tik, ledakan, kretak es, percik listrik.
-- **Kematian**: berbeda per jenis musuh, ditambah koin.
+- **Kematian**: berbeda per jenis musuh (hantu meraung, perisai berdentang), ditambah koin.
+- **Kemampuan bos**: lendir dimuntahkan, pasir digali, tanah dihentak, api disemburkan, dan raungan saat mengamuk.
 - **Bangunan dan gelombang**: bangun, tingkatkan, jual, terompet gelombang, jingle selesai, auman bos, dentum saat benteng terkena, fanfare menang, melodi kalah.
 - **Bantuan**: tiap bantuan punya bunyi sendiri.
 
