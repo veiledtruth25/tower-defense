@@ -214,12 +214,13 @@ function handle(c,slot,local){
     S.P[slot].g+=Math.floor(S.T[i].sp*.7);S.T.splice(i,1);
   }else if(c.a==="n"){if(slot>=0&&S.ph==="build")S.cd=0}
   else if(c.a==="sp"){if(slot>=0)S.sp=S.sp===1?2:1}
+  else if(c.a==="spx"){if(local&&[1,2,4,8].includes(c.v))S.sp=c.v}
   else if(c.a==="re"){if(slot>=0&&(S.ph==="over"||S.ph==="win"))resetGame()}
   else if(c.a==="nx"){if(local&&S.ph==="win"&&S.L<MAXL){S.L++;resetGame()}}
   else if(c.a==="h"){const k=c.k|0;if(slot>=0&&k>=0&&k<HELP.length&&(S.ph==="build"||S.ph==="wave"))applyHelp(k,slot)}
   else if(c.a==="go"){if(local&&S.ph==="lobby"&&activeCount()>0){S.ph="build";S.cd=20}}
 }
-function resetGame(){S.T=[];S.E=[];S.w=0;S.lv=LIVES;S.ph="build";S.cd=20;S.sp=1;S.rg=0;S.mw=levelWaves(S.L);
+function resetGame(){S.T=[];S.E=[];S.w=0;S.lv=LIVES;S.ph="build";S.cd=20;S.sp=botOn?S.sp:1;S.rg=0;S.mw=levelWaves(S.L);
   S.P.forEach(p=>{p.g=mode==="solo"?levelGold(S.L):Math.round(levelGold(S.L)*.8);p.k=0})}
 function applyHelp(k,slot){
   if(k===0){for(const e of S.E)hit(e,{dmg:EN[e.t].hp*S.wm*(EN[e.t].boss?.2:.6)},slot)}
@@ -244,7 +245,7 @@ const int=(v,lo,hi)=>Math.min(hi,Math.max(lo,Math.round(num(v,lo))));
 function decode(D){
   if(!D||typeof D!=="object"||!Array.isArray(D.P)||!Array.isArray(D.T)||!Array.isArray(D.E))return null;
   const ph=["lobby","build","wave","over","win"].includes(D.ph)?D.ph:"build";
-  return{ph,L:int(D.L,1,MAXL),mw:int(D.mw,1,30),rg:num(D.rg,0),w:int(D.w,0,9999),lv:int(D.lv,0,99),cd:num(D.cd,0),si:int(D.si,0,9999),st:num(D.st,0),wm:num(D.wm,1),sp:D.sp===2?2:1,h:String(D.h),nid:int(D.nid,1,1e9),
+  return{ph,L:int(D.L,1,MAXL),mw:int(D.mw,1,30),rg:num(D.rg,0),w:int(D.w,0,9999),lv:int(D.lv,0,99),cd:num(D.cd,0),si:int(D.si,0,9999),st:num(D.st,0),wm:num(D.wm,1),sp:[1,2,4,8].includes(D.sp)?D.sp:1,h:String(D.h),nid:int(D.nid,1,1e9),
     P:D.P.slice(0,12).filter(Array.isArray).map(a=>({p:String(a[0]),n:String(a[1]).slice(0,14),c:int(a[2],0,3),g:int(a[3],0,1e9),k:int(a[4],0,1e9),off:!!a[5]})),
     T:D.T.slice(0,120).filter(Array.isArray).map(a=>({x:int(a[0],0,COLS-1),y:int(a[1],0,ROWS-1),t:int(a[2],0,3),l:int(a[3],1,3),o:int(a[4],0,11),sp:int(a[5],0,1e6),fz:num(a[6],0)/10,cd:0})),
     E:D.E.slice(0,300).filter(Array.isArray).map(a=>({id:int(a[0],0,1e9),t:int(a[1],0,EN.length-1),d:num(a[2],0)/100,hp:num(a[3],1),sf:num(a[4],100)/100,sl:num(a[5],0)/10,o:int(a[6],-1,11),ab:[null,"burrow","enrage"][int(a[7],0,2)]})),
@@ -287,6 +288,7 @@ async function initProfile(){
   let user=null,db=null,id=null;
   try{if(window.claude&&window.claude.use)[user,db]=await Promise.all([window.claude.use("user"),window.claude.use("db")])}catch(e){}
   try{id=user?await user.id():null}catch(e){}
+  try{isOwner=location.protocol==="file:"||(user?await user.isOwner():false)}catch(e){isOwner=false}
   if(db&&id){
     try{profRef=db.doc("data/users/"+id+"/profile");const snap=await profRef.get();prof=normProfile(snap.exists?snap.data():lsLoad()||PROFILE0())}catch(e){profRef=null}
   }
@@ -374,11 +376,12 @@ function renderMeta(){
   if(!profReady){g.innerHTML="";$("#lvInfo").textContent="Memuat progres…"}
   else{
     let h="";for(let L=1;L<=MAXL;L++){const st=prof.stars[L]||0,ok=unlocked(L);
-      h+='<button type="button" class="lv'+(L===selLevel?" sel":"")+(L%5===0?" boss":"")+'" data-l="'+L+'"'+(ok?"":" disabled")+' aria-label="Level '+L+'">'+L+'<small>'+(st?"★".repeat(st):"")+'</small></button>'}
+      h+='<button type="button" class="lv'+(L===selLevel?" sel":"")+(L%5===0?" boss":"")+(!ok&&isOwner?" lock":"")+'" data-l="'+L+'"'+(ok||isOwner?"":" disabled")+' aria-label="Level '+L+'">'+L+'<small>'+(st?"★".repeat(st):"")+'</small></button>'}
     if(g.dataset.k!==h){g.dataset.k=h;g.innerHTML=h;const s=g.querySelector(".sel");if(s&&s.scrollIntoView&&!g.dataset.scrolled){g.dataset.scrolled=1;g.scrollTop=Math.max(0,s.offsetTop-g.offsetTop-90)}}
+    $("#ownerNote").hidden=!isOwner;
     const L=selLevel,best=prof.stars[L]||0;
     $("#lvInfo").innerHTML='<b>Level '+L+'</b> · '+MAPS[mapOf(L)].n+' · '+levelWaves(L)+' gelombang · Bos terakhir: '+EN[themedBoss(L)].n+(L>=60&&themedBoss(L)!==9?' + Naga Api':'')+
-      '<br><span class="hint">'+(best?"Terbaik "+starsHtml(best):"Belum ditamatkan")+(L>1?' · Musuh +'+Math.round((levelMul(L)-1)*100)+'% lebih kuat dari level 1':'')+' · Emas awal '+levelGold(L)+'</span>';
+      '<br><span class="hint">'+(best?"Terbaik "+starsHtml(best):unlocked(L)?"Belum ditamatkan":"Terkunci, mode uji pemilik")+(L>1?' · Musuh +'+Math.round((levelMul(L)-1)*100)+'% lebih kuat dari level 1':'')+' · Emas awal '+levelGold(L)+'</span>';
   }
   // shop
   $("#shopList").innerHTML=HELP.map((h,i)=>itemRow(h.ic,h.col,h.n+' <span class="hint">(punya '+prof.items[h.id]+')</span>',h.ds,
@@ -532,7 +535,7 @@ function showGame(){
 // ---------- hooks to the view: it draws and plays these, the logic never waits on it ----------
 function shotFx(t,x1,y1,x2,y2){BB.emit("shot",{t,x1,y1,x2,y2})}
 function fxDeath(t,x,y){
-  if(EN[t].boss&&S&&mySlot()>=0){prof.bosses++;saveProfile()}
+  if(EN[t].boss&&S&&mySlot()>=0&&!testRun){prof.bosses++;saveProfile()}
   const w=S?S.w:1;BB.emit("death",{t,x,y,gold:Math.round(EN[t].rw*(1+w*.04)*levelRw(S?S.L:1))});
 }
 function helperFx(k,slot,st){
@@ -540,17 +543,24 @@ function helperFx(k,slot,st){
   BB.emit("help",{k,slot,S:st});
 }
 let prevPh=null,prevK=null,prevW=null,known={};
+// a run is a test (no progress, gems or challenge counts) when the bot played in it or the owner opened a locked level
+let testRun=false;
+const isTestLevel=L=>botOn||(isOwner&&!unlocked(L));
 function clearFx(){prevPh=null;prevK=null;prevW=null;lastWin=null;known={};BB.view.reset()}
 // progress counters that come from watching the state: towers built, kills, level wins
 function observe(){
   if(!S){prevW=null;return}
   setMap(mapOf(S.L));
+  if(prevPh===null||(prevPh!==S.ph&&S.ph==="build"&&S.w===0))testRun=isTestLevel(S.L);
+  if(botOn)testRun=true;
   const slot=mySlot(),seen={};
   for(const tw of S.T){const k=tw.x+","+tw.y;seen[k]=1;
-    if(known[k]!==tw.t){known[k]=tw.t;if(prevW!==null&&slot>=0&&tw.o===slot){prof.towers++;saveProfile()}}}
+    if(known[k]!==tw.t){known[k]=tw.t;if(prevW!==null&&slot>=0&&tw.o===slot&&!testRun){prof.towers++;saveProfile()}}}
   for(const k in known)if(!seen[k])delete known[k];
-  if(slot>=0){const k=S.P[slot].k;if(prevK!==null&&k>prevK){prof.kills+=k-prevK;saveProfile()}prevK=k}else prevK=null;
-  if(prevPh!==null&&prevPh!==S.ph&&S.ph==="win"&&slot>=0)onLevelWin(S.L,starsFor(S.lv));
+  if(slot>=0){const k=S.P[slot].k;if(prevK!==null&&k>prevK&&!testRun){prof.kills+=k-prevK;saveProfile()}prevK=k}else prevK=null;
+  if(prevPh!==null&&prevPh!==S.ph&&(S.ph==="win"||S.ph==="over")){
+    if(botOn||testRun)botResult();
+    if(S.ph==="win"&&slot>=0){if(testRun)toast("Mode uji: progres level "+S.L+" tidak dicatat.");else onLevelWin(S.L,starsFor(S.lv))}}
   prevPh=S.ph;prevW=S.w;
 }
 
@@ -602,6 +612,8 @@ function ui(force){
     S.ph==="wave"?'Gelombang <b>'+S.w+'</b> berjalan · <b>'+(S.E.length+Math.max(0,L.length-S.si))+'</b> musuh tersisa':
     S.ph==="lobby"?'Menunggu pemain di lobi':'Permainan selesai';
   $("#btnNext").disabled=S.ph!=="build"||slot<0;
+  if(botOn)$("#waveTxt").innerHTML='<b style="color:var(--gem)">BOT</b> · '+$("#waveTxt").innerHTML;
+  botUi();
   $("#btnSpeed").textContent="Kecepatan "+S.sp+"×";$("#btnSpeed").disabled=slot<0;
   // shop
   const gold=me?me.g:0;
@@ -676,6 +688,52 @@ $("#shopList").addEventListener("click",e=>{const b=e.target.closest("[data-buy]
 $("#achList").addEventListener("click",e=>{const b=e.target.closest("[data-ach]");if(b)claimAch(b.dataset.ach)});
 $("#eventList").addEventListener("click",e=>{const b=e.target.closest("[data-ev]");if(b)claimEvent(b.dataset.ev)});
 $("#btnDaily").onclick=claimDaily;
+$("#btnBot").onclick=()=>{if(!isOwner)return;botOn=!botOn;botT=0;if(botOn){testRun=true;botMsg="Bot mulai bermain."}else botMsg="Bot berhenti.";ui(true)};
+$("#botAuto").onchange=e=>{botAuto=e.target.checked};
+$("#botSpeeds").addEventListener("click",e=>{const b=e.target.closest("[data-bsp]");if(b&&isOwner)sendCmd({a:"spx",v:+b.dataset.bsp})});
+
+// ---------- test bot (owner only): plays the owner's seat so a level can be checked live ----------
+// It acts only through sendCmd, like a player, so it works solo, as host and as a client in a room.
+let isOwner=false,botOn=false,botAuto=true,botT=0,botMsg="",botLog=[];
+const BOT_MIX=[.3,.3,.15,.25];   // share of Panah, Meriam, Es, Jitu the bot aims for
+function pathSamples(){const g=GEO[MAPI];if(!g._smp){g._smp=[];for(let d=.25;d<g.PLEN;d+=.5){const p=posIn(g,d);if(p[0]>=0&&p[0]<COLS)g._smp.push(p)}}return g._smp}
+function cover(sm,x,y,r){let n=0;const cx=x+.5,cy=y+.5,r2=r*r;for(const p of sm){const dx=p[0]-cx,dy=p[1]-cy;if(dx*dx+dy*dy<=r2)n++}return n}
+function botValue(t,l){if(t===2)return 12*l;const s=stat(t,l);return s.dmg/s.rate*(s.splash?1.8:1)}
+function botDecide(){
+  const slot=mySlot();if(slot<0){botMsg="Bot tidak punya kursi pemain di room ini.";return null}
+  if(S.ph==="lobby"){botMsg="Menunggu permainan dimulai.";return isHost?{a:"go"}:null}
+  if(S.ph==="win"){botMsg="Level tamat.";return botAuto&&isHost&&S.L<MAXL?{a:"nx"}:null}
+  if(S.ph==="over"){botMsg="Benteng runtuh. Bot berhenti supaya kamu bisa memeriksa.";botOn=false;return null}
+  const sm=pathSamples(),gold=S.P[slot].g;let best=null;
+  const consider=(c,val,cost,why)=>{const v=val/cost;if(val>0&&(!best||v>best.v))best={c,v,cost,why}};
+  for(const tw of S.T){if(tw.o!==slot||tw.l>=3)continue;
+    consider({a:"u",x:tw.x,y:tw.y},cover(sm,tw.x,tw.y,stat(tw.t,tw.l+1).range)*(botValue(tw.t,tw.l+1)-botValue(tw.t,tw.l)),upCost(tw.t,tw.l),"tingkatkan "+TW[tw.t].n+" di ("+tw.x+","+tw.y+")")}
+  const mine=S.T.filter(t=>t.o===slot),cnt=[0,0,0,0];mine.forEach(t=>cnt[t.t]++);
+  let tt=0,lack=-1;if(mine.length>=2)for(let t=0;t<4;t++){const l=BOT_MIX[t]*(mine.length+1)-cnt[t];if(l>lack){lack=l;tt=t}}
+  const r=stat(tt,1).range;let bx=-1,by=-1,bc=0;
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){if(!canBuild(x,y))continue;const c=cover(sm,x,y,r);if(c>bc){bc=c;bx=x;by=y}}
+  if(bx>=0)consider({a:"b",x:bx,y:by,t:tt},bc*botValue(tt,1)*1.15,TW[tt].cost,"bangun "+TW[tt].n+" di ("+bx+","+by+")");
+  if(best&&best.cost<=gold){botMsg=best.why[0].toUpperCase()+best.why.slice(1)+".";return best.c}
+  if(S.ph==="build"&&S.cd>.5){botMsg="Emas belum cukup, mulai gelombang.";return{a:"n"}}
+  botMsg=best?"Menabung untuk "+best.why+".":"Menunggu.";return null;
+}
+function botTick(dt){
+  if(!botOn||!isOwner||!S)return;
+  botT-=dt;if(botT>0)return;botT=.35;
+  const c=botDecide();if(c){const p=sendCmd(c);if(p&&p.catch)p.catch(()=>{})}
+}
+function botResult(){
+  const txt="Level "+S.L+": "+(S.ph==="win"?"menang "+"★".repeat(starsFor(S.lv))+" (sisa "+S.lv+" nyawa)":"kalah di gelombang "+S.w+"/"+S.mw);
+  botLog.unshift(txt);botLog.length=Math.min(botLog.length,12);
+}
+function botUi(){
+  const box=$("#botBox");box.hidden=!isOwner;if(!isOwner)return;
+  const b=$("#btnBot");b.textContent=botOn?"Matikan bot":"Nyalakan bot";b.setAttribute("aria-pressed",String(botOn));b.className=botOn?"ghost":"btn";
+  $("#botMsg").textContent=botMsg||"Bot bermain untukmu supaya level bisa diuji langsung. Selama bot ikut bermain, progres, permata dan tantangan tidak dicatat.";
+  $("#botSpeeds").hidden=!isHost;
+  $("#botSpeeds").querySelectorAll("[data-bsp]").forEach(x=>x.setAttribute("aria-pressed",String(S&&+x.dataset.bsp===S.sp)));
+  const k=botLog.join("|");if($("#botLog").dataset.k!==k){$("#botLog").dataset.k=k;$("#botLog").innerHTML=botLog.map(t=>"<li>"+esc(t)+"</li>").join("")}
+}
 
 // ---------- read-only window for the view (view3d.js, audio.js); see KOLABORASI.md ----------
 BB.game={
@@ -700,7 +758,7 @@ function frame(now){
       if(S.ph==="build")S.cd=Math.max(0,S.cd-k)}
   }
   const inGame=!$("#scrGame").hidden;
-  if(inGame)observe();
+  if(inGame){observe();botTick(dt)}
   BB.view.frame(dt);
   if(inGame){uiT+=dt;if(uiT>.2){uiT=0;ui(false)}}
   requestAnimationFrame(frame);

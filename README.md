@@ -12,6 +12,7 @@ Game tower defense co-op 3D di browser untuk 1–4 pemain. Pemain membangun mena
 - **Event:** Festival Akhir Pekan (Sabtu–Minggu, permata level 2×), Pesta Awal Bulan (tanggal 1–3), plus event yang ditulis pemilik artifact ke koleksi `events`.
 - **Progres:** disimpan per akun lewat kemampuan `db` Artifact. Di luar claude.ai, progres disimpan di browser.
 - **Suara:** efek dan musik dibuat dengan WebAudio. Matikan atau nyalakan lewat tombol Suara/Musik.
+- **Bot uji (khusus pemilik artifact):** di menu permainan (☰), bot bisa dinyalakan untuk memainkan level secara otomatis dengan kecepatan sampai 8×, lanjut ke level berikutnya saat menang, dan mencatat hasilnya. Pemilik juga bisa membuka level yang belum terbuka. Run seperti ini tidak mengubah progres.
 - **Kontrol:** tombol 1–4 pilih menara · Esc batal · U tingkatkan · S jual · Spasi mulai gelombang. Di ponsel, ketuk kartu menara, ketuk petak untuk melihat jangkauannya, lalu ketuk sekali lagi untuk membangun.
 
 ## Menjalankan

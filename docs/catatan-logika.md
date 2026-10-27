@@ -29,3 +29,14 @@ Usulan di `catatan-desain.md` sudah dikerjakan di `js/game.js`, sesuai kontrak d
 - **Jaringan:** `ab` dan `fz` ikut `encode`/`decode`, dan event `ability` dikirim lewat field baru `A` (bukan `F`). Kode bantuan di `F` pindah dari `-10-k` ke `-20-k`, supaya tidak bentrok dengan kematian musuh jenis 9.
 - Tantangan "Penakluk Raja" diganti "Penakluk Bos" dan menghitung semua bos (id tetap `bosses`).
 - `node tests/smoke.js` lolos. Uji tambahan memastikan semua kemampuan terpicu dan `ab`/`fz` selamat lewat `encode`/`decode`.
+
+## 2026-10-27: bot uji khusus pemilik
+
+- **Elemen baru di `index.html`:**
+  - `#botBox` di dalam `#gameMenu`, sebelum petunjuk tombol. Isinya `#btnBot`, `#botAuto`, `#botSpeeds` dan `#botLog`, dan memakai class yang sudah ada (`gm-row`, `btn`, `ghost`, `hint`).
+  - `#ownerNote` di bawah `#lvGrid`.
+  - Satu aturan CSS `.lv.lock`, untuk level terkunci yang bisa dipilih pemilik. Silakan rapikan gayanya.
+- **Siapa yang melihat:** panel hanya tampil kalau `user.isOwner()` bernilai true, atau kalau halaman dibuka dari `file://` untuk uji lokal.
+- **Cara kerja bot:** bot bermain lewat `sendCmd` seperti pemain biasa, jadi tidak ada field state baru. Saat bot aktif, `#waveTxt` diberi awalan "BOT".
+- **Kecepatan 4× dan 8×:** `S.sp` sekarang bisa bernilai 1, 2, 4 atau 8, lewat perintah `spx`, hanya dari host lokal. `hud.js` sudah membaca `S.sp` apa adanya.
+- **Progres:** run yang dimainkan bot, atau level terkunci yang dibuka pemilik, tidak mencatat progres, permata, maupun tantangan.

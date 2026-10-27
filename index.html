@@ -84,6 +84,7 @@ input.t{background:var(--bg);border:1px solid var(--line);border-radius:6px;padd
 .lv.boss{border-style:dashed}
 .lv.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .lv:disabled{opacity:.35;cursor:not-allowed}
+.lv.lock{opacity:.55;border-style:dotted}
 .items{display:flex;flex-direction:column;gap:6px}
 .item{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px}
 .ic{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;font-family:var(--font-display);font-size:13px;color:#141925}
@@ -354,6 +355,7 @@ html.playing #toast{bottom:calc(var(--fb,0px) + 52px)}
       <div class="pane" id="pane-level">
         <div class="lvinfo" id="lvInfo">Memuat progres…</div>
         <div class="lvgrid" id="lvGrid"></div>
+        <p class="hint" id="ownerNote" hidden>Mode pemilik: level yang belum terbuka (bergaris titik) tetap bisa kamu pilih untuk uji. Hasilnya tidak mengubah progres.</p>
         <div class="row">
           <button class="btn" id="btnSolo">Main sendiri</button>
           <button class="btn" id="btnHost">Buat room multiplayer</button>
@@ -432,6 +434,16 @@ html.playing #toast{bottom:calc(var(--fb,0px) + 52px)}
         </div>
         <h3>Pemain</h3>
         <ul id="plist"></ul>
+        <div id="botBox" hidden>
+          <h3>Bot uji · khusus pemilik</h3>
+          <p class="hint" id="botMsg">Bot bermain untukmu supaya level bisa diuji langsung. Selama bot ikut bermain, progres, permata dan tantangan tidak dicatat.</p>
+          <div class="gm-row">
+            <button class="btn" type="button" id="btnBot" aria-pressed="false">Nyalakan bot</button>
+          </div>
+          <label class="hint"><input type="checkbox" id="botAuto" checked> Lanjut ke level berikutnya saat menang</label>
+          <div class="gm-row" id="botSpeeds"><button class="ghost" type="button" data-bsp="1">1×</button><button class="ghost" type="button" data-bsp="2">2×</button><button class="ghost" type="button" data-bsp="4">4×</button><button class="ghost" type="button" data-bsp="8">8×</button></div>
+          <ol class="hint" id="botLog"></ol>
+        </div>
         <p class="hint keys">Tombol: 1–4 pilih menara · Esc batal · U tingkatkan · S jual · Spasi mulai gelombang</p>
         <div class="gm-row">
           <button class="btn" type="button" data-close>Lanjut main</button>
