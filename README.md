@@ -26,7 +26,11 @@ Game tower defense co-op 3D di browser untuk 1–4 pemain. Pemain membangun mena
 
 Buka `index.html` di browser untuk mode main sendiri. Tidak perlu server, karena semua skrip dimuat dari folder `js/` dan `vendor/`. Butuh browser yang mendukung WebGL.
 
-Mode multiplayer memakai kemampuan `room` dari Claude Artifacts, jadi hanya berfungsi kalau halaman ini dibuka sebagai Artifact di claude.ai. Di luar itu (file lokal atau GitHub Pages), yang bisa dimainkan hanya mode main sendiri.
+Multiplayer butuh server room. Ada dua cara:
+- **Server sendiri (VPS):** `server/server.js` menyajikan game dan menjadi room lewat WebSocket. Alamat yang sedang berjalan: https://towerdefense.evertwo.id. Lihat "Deploy di VPS" di bawah.
+- **Artifact claude.ai:** memakai kemampuan `room` bawaan penampil.
+
+Dari file lokal atau GitHub Pages, yang bisa dimainkan hanya mode main sendiri.
 
 ## Struktur kode
 
@@ -40,3 +44,35 @@ Mode multiplayer memakai kemampuan `room` dari Claude Artifacts, jadi hanya berf
 | `tests/smoke.js` | Uji otomatis: `node tests/smoke.js` (butuh Playwright) |
 
 Proyek ini dikerjakan dua sesi Claude: satu untuk logika, satu untuk desain. Aturan kerja samanya ada di [KOLABORASI.md](KOLABORASI.md).
+
+## Deploy di VPS
+
+Server: Node 24 dengan satu dependensi (`ws`), dibungkus Docker. Jalur masuknya sama seperti `candymatch`:
+Cloudflare Tunnel (`*.evertwo.id`) → Nginx Proxy Manager (`evertwo-npm`, proxy host `towerdefense.evertwo.id`, WebSocket aktif) → container `towerdefense:3000` di jaringan `evertwo-network`.
+
+```bash
+cd tower-defense
+cp .env.example .env          # isi ADMIN_KEY (lihat di bawah); .env tidak ikut git
+docker compose up -d --build  # bangun dan jalankan; restart otomatis
+curl localhost:7471/healthz    # cek lokal
+```
+
+Update: `git pull && docker compose up -d --build`. Game sedang berjalan di room akan terputus saat restart.
+
+- **Alias `td-test`:** proxy host di NPM meneruskan ke `td-test:3000`. `docker-compose.yml` memberi alias itu ke container ini. Kalau Forward Hostname di NPM diganti menjadi `towerdefense`, alias boleh dihapus.
+- **Kunci pemilik (bot uji):** `ADMIN_KEY` di `.env`. Buka `https://towerdefense.evertwo.id/#admin=KUNCI` sekali di browser; kunci disimpan di browser itu, dihapus dari alamat, dan diperiksa server. Tanpa kunci, panel bot dan level terkunci tidak muncul.
+- **Progres pemain** disimpan di browser masing-masing (belum ada akun).
+- **Keamanan dasar:** hanya `index.html`, `js/`, `vendor/` yang disajikan; room dibatasi ukuran pesan, jumlah, dan laju; percobaan kunci dibatasi 10 kali per 10 menit per alamat.
+
+## Uji dua pemain
+
+```bash
+docker run -d --name towerdefense-test -p 127.0.0.1:7472:3000 -e ADMIN_KEY=kunci-uji towerdefense:latest
+mkdir -p test-out && chmod 777 test-out
+docker run --rm --network host -e NODE_PATH=/usr/src/app/node_modules -v "$PWD":/app:ro -v "$PWD/test-out":/out \
+  zenika/alpine-chrome:with-puppeteer node /app/tests/multiplayer.js http://127.0.0.1:7472 /out
+# argumen ke-4 "nopresence" meniru presence tamu yang hilang; tests/admin.js menguji pengaman bot
+```
+
+Chrome di server ini menggambar 3D lewat CPU, jadi memuat satu halaman butuh sekitar 25 detik.
+

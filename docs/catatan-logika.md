@@ -63,3 +63,15 @@ Pemilik proyek meminta peta dengan 1–3 portal dan jalan bercabang. Rencana len
   3. Posisikan musuh dengan `posIn(g, e.d, e.r)`, termasuk arah hadap, jejak, dan kebocoran (`PLEN` dari jalannya sendiri: `g.routes[e.r].PLEN`). Ini juga berlaku untuk target meteor dan kemampuan bos.
   4. Dekorasi tidak boleh menutupi jalan mana pun. `geo.PATH` sudah berisi semua jalan.
 - Setelah langkah 2 selesai, saya akan menyetel keseimbangan dengan bot (langkah 3) dan menyalakan jadwalnya (langkah 4).
+
+## 2026-10-27: server multiplayer sendiri dan perbaikan pendaftaran pemain
+
+- **Server sendiri:** `server/server.js` dan `js/net-ws.js` (dimuat sebelum `game.js`). Di claude.ai `window.claude` sudah ada, jadi `net-ws.js` tidak aktif. Di luar itu ia menyediakan `claude.use("room")` dengan bentuk yang sama (join, presence, peers, onPeers, emit, on), dan `claude.use("user")` untuk pemilik. `game.js` tidak tahu bedanya. Alamat: https://towerdefense.evertwo.id. Cara deploy ada di README.
+- **Bug "pemain lain tidak dapat emas dan lobi menghitung 1 pemain":** host hanya mendaftarkan pemain kalau presence-nya berisi nama (`nm`). Kalau presence telat atau hilang, pemain itu tidak pernah dapat kursi: ia jadi penonton (`mySlot()` -1), tidak punya emas, dan melihat pesan "Room penuh". Direproduksi dengan dua browser sungguhan di server sendiri, dengan presence tamu sengaja dibuang.
+- **Perbaikan di `game.js`:**
+  - `registerPlayer` mendaftarkan peer yang ada di room walau tanpa nama (nama cadangan "Pemain xyz", diganti nama asli begitu sampai).
+  - Tamu mengirim `cmd {a:"hi", n:nama}` tiap 1,5 detik sampai host memberinya kursi (`startHello`), jadi tidak bergantung pada satu jalur presence.
+  - Pesan penonton hanya "Room penuh" kalau memang sudah 4 pemain.
+- **Belum bisa dibuktikan:** penyebab pastinya di claude.ai. Di server sendiri alur normal sudah berjalan, dan perbaikan di atas menutup kasus presence hilang. Kalau di claude.ai masih ada masalah, cek juga apakah pemain lain punya akses Contributor (topik `cmd`/`state` hanya dibuka untuk level itu).
+- **Uji:** `tests/multiplayer.js` (dua pemain, ada varian `nopresence`) dan `tests/admin.js` (pengaman bot).
+- Artifact di claude.ai belum diterbitkan ulang dengan perubahan ini. Terbitkan dari sesi yang memegang Artifact; file tambahan baru: `js/net-ws.js`.
