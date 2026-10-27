@@ -495,6 +495,7 @@ async function enterRoom(code,host){
   mode="multi";roomCode=code;isHost=false;S=null;myPeer=null;wantHost=host;clearFx();pendF=[];
   gr.presence({nm:myName()}).catch(()=>{});
   unsubs.push(gr.on("state",onState,()=>{}),gr.on("cmd",onCmd,()=>{}),gr.onPeers(onGamePeers,()=>{}));
+  if(!host)startHello();
   showGame();
   if(!host){clearTimeout(joinTimer);joinTimer=setTimeout(()=>{
     if(gr&&!S&&myPeer){const others=gr.peers().filter(p=>!p.sameTab&&p.kind==="viewer");
@@ -502,25 +503,46 @@ async function enterRoom(code,host){
 }
 function tryHost(){if(wantHost&&myPeer&&!S){S=newState(true,myPeer,selLevel);isHost=true;wantHost=false;syncPlayers()}}
 function onGamePeers(ch){
-  const me=ch.peers.find(p=>p.sameTab);if(me)myPeer=me.peer;
+  const me=ch.peers.find(p=>p.sameTab);
+  if(me){
+    // our identity changed (the server forgot us, e.g. after a restart): a host keeps the game by renaming itself in it
+    if(myPeer&&me.peer!==myPeer&&isHost&&S){const old=myPeer;S.h=me.peer;S.P.forEach(p=>{if(p.p===old)p.p=me.peer})}
+    myPeer=me.peer;
+  }
   tryHost();
   if(isHost)syncPlayers();else checkHostAlive();
+}
+// A player takes a seat as soon as the room shows them, even when their presence (the name) has not arrived:
+// they get a stand-in name and the real one replaces it later. Before this, a player whose presence was late
+// or lost never got a seat, so they got no gold and the lobby kept counting 1.
+function registerPlayer(peer,nm,present){
+  const real=String(nm||"").trim().slice(0,14);
+  let slot=S.P.find(p=>p.p===peer);
+  if(slot){if(slot.off){if(activeCount()>=MAXP)return;slot.off=false}if(real)slot.n=real;return}
+  if(activeCount()>=MAXP)return;
+  slot=real?S.P.find(p=>p.off&&p.n===real&&!present.has(p.p)):null;
+  if(slot){slot.p=peer;slot.off=false;return}
+  if(S.P.length>=12)return;
+  const used=new Set(S.P.filter(p=>!p.off).map(p=>p.c));let c=0;while(used.has(c))c++;
+  S.P.push({p:peer,n:real||"Pemain "+String(peer).slice(-3),c,g:Math.round(levelGold(S.L)*.8),k:0,off:false});
 }
 function syncPlayers(){
   if(!gr||!S)return;
   const peers=gr.peers().filter(p=>p.kind==="viewer"),present=new Set(peers.map(p=>p.peer));
   S.P.forEach(p=>{if(!present.has(p.p))p.off=true});
-  for(const pr of peers){
-    const nm=String(pr.presence&&pr.presence.nm||"").trim().slice(0,14);if(!nm)continue;
-    let slot=S.P.find(p=>p.p===pr.peer);
-    if(slot){if(slot.off&&activeCount()>=MAXP)continue;slot.off=false;slot.n=nm;continue}
-    if(activeCount()>=MAXP)continue;
-    slot=S.P.find(p=>p.off&&p.n===nm&&!present.has(p.p));
-    if(slot){slot.p=pr.peer;slot.off=false;continue}
-    if(S.P.length>=12)continue;
-    const used=new Set(S.P.filter(p=>!p.off).map(p=>p.c));let c=0;while(used.has(c))c++;
-    S.P.push({p:pr.peer,n:nm,c,g:Math.round(levelGold(S.L)*.8),k:0,off:false});
-  }
+  for(const pr of peers)registerPlayer(pr.peer,pr.presence&&pr.presence.nm,present);
+}
+// a guest keeps saying hello until the host has given them a seat (works even if presence never arrives)
+let helloT=0;
+function startHello(){
+  clearInterval(helloT);let n=0,fixes=0;
+  helloT=setInterval(()=>{
+    if(!gr||isHost||mode!=="multi"||++n>40){clearInterval(helloT);return}
+    if(S&&mySlot()>=0){   // seated: once the host shows our real name we are done (else send it again, a few times)
+      if(S.P[mySlot()].n===myName().slice(0,14)||++fixes>3){clearInterval(helloT);return}
+    }
+    gr.emit("cmd",{a:"hi",n:myName()}).catch(()=>{});
+  },1500);
 }
 function checkHostAlive(){
   if(!gr||!S||isHost)return;
@@ -537,7 +559,7 @@ function checkHostAlive(){
 }
 function onState(msg){
   if(msg.sameTab||!msg.data||msg.data.h!==msg.peer)return;
-  if(isHost){if(myPeer&&msg.peer<myPeer){isHost=false}else return}
+  if(isHost){if(myPeer&&msg.peer<myPeer){isHost=false;lobbyPresence()}else return}   // two hosts: the lower id keeps the game
   const ns=decode(msg.data);if(!ns)return;
   clearTimeout(joinTimer);wantHost=false;
   for(const f of ns.F){const ti=int(f[0],-30,119),x=num(f[1],0)/10,y=num(f[2],0)/10;
@@ -547,7 +569,16 @@ function onState(msg){
     const ev={t:int(a[0],0,EN.length-1),k,x:d(a[2]),y:d(a[3]),id:int(a[4],0,1e9)};if(k==="breath"){ev.tx=d(a[5]);ev.ty=d(a[6])}if(k!=="summon")ev.r=d(a[7]);BB.emit("ability",ev)}
   S=ns;
 }
-function onCmd(msg){if(!isHost||!S||msg.sameTab)return;handle(msg.data,S.P.findIndex(p=>p.p===msg.peer&&!p.off),false)}
+function onCmd(msg){
+  if(!isHost||!S||msg.sameTab)return;
+  const c=msg.data;
+  if(c&&c.a==="hi"){
+    const present=new Set(gr.peers().filter(p=>p.kind==="viewer").map(p=>p.peer));
+    if(present.has(msg.peer))registerPlayer(msg.peer,c.n,present);
+    return;
+  }
+  handle(c,S.P.findIndex(p=>p.p===msg.peer&&!p.off),false);
+}
 function sendCmd(c){
   if(!S)return;
   if(isHost){handle(c,mySlot(),true);return}
@@ -572,7 +603,7 @@ function startSolo(){
 }
 function leave(){
   if(gr){const g=gr;gr=null;unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];g.leave().catch(()=>{})}
-  clearTimeout(joinTimer);clearTimeout(hostGoneTimer);hostGoneTimer=0;
+  clearTimeout(joinTimer);clearTimeout(hostGoneTimer);hostGoneTimer=0;clearInterval(helloT);
   S=null;isHost=false;wantHost=false;mode="";selType=null;selXY=null;
   lobbyPresence();
   $("#scrGame").hidden=true;$("#scrMenu").hidden=false;$("#stats").hidden=true;$("#btnLeave").hidden=true;
@@ -659,7 +690,7 @@ function ui(force){
       (slot>=0?'<button class="ghost" id="bRe">Ulangi</button>':'')+(isHost&&S.L<MAXL?'<button class="btn" id="bNx">Lanjut ke level '+(S.L+1)+'</button>':'')+(!isHost?'<p class="hint">Host memilih level berikutnya.</p>':''),
       b=>{const r=b.querySelector("#bRe");if(r)r.onclick=()=>sendCmd({a:"re"});const n=b.querySelector("#bNx");if(n)n.onclick=()=>sendCmd({a:"nx"})});
   }else if(mode==="multi"&&slot<0){
-    setBanner("spec",'<p>Room penuh (4 pemain). Kamu menonton.</p>');
+    setBanner("spec"+(activeCount()>=MAXP),activeCount()>=MAXP?'<p>Room penuh (4 pemain). Kamu menonton.</p>':'<p>Mendaftarkan kamu ke permainan…</p>');
   }else setBanner("");
   // wave box
   const L=S.w?waveList(S.w,S.L):[];
@@ -809,12 +840,13 @@ function frame(now){
   const dt=Math.min(.1,(now-last)/1000);last=now;
   if(S){
     if(isHost){acc+=dt;const step=1/30;while(acc>=step){for(let k=0;k<S.sp;k++)sim(step);acc-=step}
-      if(gr&&now-lastBc>125){lastBc=now;broadcast()}
-      if(gr&&now-lastLobbyPres>2500){lastLobbyPres=now;lobbyPresence()}}
+      if(gr&&now-lastBc>125){lastBc=now;broadcast()}}
     else{const k=dt*S.sp;
       if(S.ph==="wave")for(const e of S.E){e.d+=espd(e)*k;e.sl=Math.max(0,e.sl-k)}
       if(S.ph==="build")S.cd=Math.max(0,S.cd-k)}
   }
+  // the open-rooms list: hosts advertise their room, everyone else clears the old ad (a host that stepped down must not stay listed)
+  if(gr&&now-lastLobbyPres>2500){lastLobbyPres=now;lobbyPresence()}
   const inGame=!$("#scrGame").hidden;
   if(inGame){observe();botTick(dt)}
   BB.view.frame(dt);

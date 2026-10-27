@@ -1,0 +1,9 @@
+{
+  "name": "benteng-bersama-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Server statis dan room WebSocket untuk Benteng Bersama",
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}

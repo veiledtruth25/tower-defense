@@ -1,0 +1,28 @@
+# Deploy: container di jaringan evertwo-network, seperti candymatch.
+# Akses publik: Cloudflare Tunnel (*.evertwo.id) -> Nginx Proxy Manager (evertwo-npm, proxy host
+# towerdefense.evertwo.id, WebSocket aktif) -> container ini, port 3000.
+# Port 127.0.0.1:7471 hanya untuk cek lokal di server.
+# Kunci pemilik (bot uji) dibaca dari berkas .env (tidak ikut git, lihat .env.example).
+services:
+  towerdefense:
+    build: .
+    image: towerdefense:latest
+    container_name: towerdefense
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:7471:3000"
+    networks:
+      evertwo-network:
+        aliases:
+          # Proxy host towerdefense.evertwo.id di Nginx Proxy Manager meneruskan ke td-test:3000.
+          # Alias ini membuat host itu langsung bekerja. Kalau Forward Hostname di NPM diganti
+          # menjadi towerdefense, alias ini boleh dihapus.
+          - td-test
+
+networks:
+  evertwo-network:
+    external: true

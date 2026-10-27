@@ -1,6 +1,7 @@
 <title>Benteng Bersama</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141925'/%3E%3Cpath d='M7 25V12h3v3h3v-3h2v-3h2v3h2v3h3v-3h3v13z' fill='%23f0b545'/%3E%3Crect x='13' y='18' width='6' height='7' rx='3' fill='%23141925'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&display=swap">
@@ -401,7 +402,7 @@ html.playing #toast{bottom:calc(var(--fb,0px) + 52px)}
         <h2>Room yang sedang terbuka</h2>
         <ul id="openList"></ul>
         <p class="hint" id="openEmpty">Belum ada room terbuka. Buat satu, lalu bagikan kodenya.</p>
-        <p class="note" id="netNote" hidden>Multiplayer tidak tersedia di tampilan ini. Buka halaman ini di claude.ai sambil masuk ke akunmu. Mode main sendiri tetap bisa dipakai.</p>
+        <p class="note" id="netNote" hidden>Multiplayer tidak tersedia di tampilan ini. Buka lewat alamat server game atau lewat claude.ai. Mode main sendiri tetap bisa dipakai.</p>
       </div>
       <div class="pane" id="pane-shop" hidden>
         <p class="hint">Bantuan dipakai saat bermain, dari panel “Bantuan” di samping peta.</p>
@@ -497,4 +498,5 @@ html.playing #toast{bottom:calc(var(--fb,0px) + 52px)}
 <script src="js/view/actors.js"></script>
 <script src="js/view/main.js"></script>
 <script src="js/view/hud.js"></script>
+<script src="js/net-ws.js"></script>
 <script src="js/game.js"></script>
