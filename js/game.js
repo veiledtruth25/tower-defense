@@ -45,17 +45,39 @@ const MAPS=[
   {n:"Lembah Hijau",p:[[-1,2],[4,2],[4,9],[9,9],[9,3],[15,3],[15,8],[20,8]]},
   {n:"Bukit Kembar",p:[[-1,6],[3,6],[3,1],[8,1],[8,10],[13,10],[13,5],[17,5],[17,2],[20,2]]},
   {n:"Rawa Berliku",p:[[-1,10],[5,10],[5,6],[2,6],[2,2],[10,2],[10,8],[14,8],[14,4],[18,4],[18,9],[20,9]]},
-  {n:"Ular Raksasa",p:[[-1,1],[16,1],[16,4],[3,4],[3,7],[16,7],[16,10],[20,10]]}
+  {n:"Ular Raksasa",p:[[-1,1],[16,1],[16,4],[3,4],[3,7],[16,7],[16,10],[20,10]]},
+  // maps with several routes (r): every route ends at the same gate; routes that start at the same portal are a fork.
+  // Not in the level schedule yet (see docs/rencana-banyak-jalan.md); the owner can preview them with #peta5..#peta8.
+  {n:"Padang Bercabang",r:[[[-1,5],[3,5],[3,2],[10,2],[10,5],[15,5],[15,8],[20,8]],
+                           [[-1,5],[3,5],[3,9],[10,9],[10,5],[15,5],[15,8],[20,8]]]},
+  {n:"Salju Dua Gerbang",r:[[[-1,2],[5,2],[5,8],[12,8],[12,5],[16,5],[16,9],[20,9]],
+                            [[13,-1],[13,1],[9,1],[9,5],[12,5],[16,5],[16,9],[20,9]]]},
+  {n:"Rawa Simpang",r:[[[-1,3],[3,3],[3,1],[9,1],[9,4],[13,4],[13,8],[20,8]],
+                       [[-1,3],[3,3],[3,6],[9,6],[9,4],[13,4],[13,8],[20,8]],
+                       [[2,12],[2,10],[11,10],[11,8],[20,8]]]},
+  {n:"Gurun Tiga Gerbang",r:[[[-1,6],[3,6],[3,3],[8,3],[8,6],[16,6],[16,9],[20,9]],
+                             [[18,-1],[18,2],[13,2],[13,6],[16,6],[16,9],[20,9]],
+                             [[6,12],[6,9],[11,9],[11,6],[16,6],[16,9],[20,9]]]}
 ];
 let MAPI=-1,WPI,WP,SEG,PLEN,PATH,EXIT;
 // geometry of one map, computed once; the view reads it too (BB.game.geo) so both agree on the road
+// routes: one entry per road a monster can walk (WPI, WP, SEG, PLEN, portal index). WPI/WP/SEG/PLEN on the geo
+// itself are route 0, so code written for one road keeps working. PATH is every road tile of every route.
+const sideOf=([x,y])=>x<0?"Barat":y<0?"Utara":y>=ROWS?"Selatan":"Timur";
 function buildGeo(i){
-  const WPI=MAPS[i].p,WP=WPI.map(([x,y])=>[x+.5,y+.5]),SEG=[];let PLEN=0;
-  for(let j=0;j<WP.length-1;j++){const a=WP[j],b=WP[j+1],l=Math.hypot(b[0]-a[0],b[1]-a[1]);SEG.push({a,b,l});PLEN+=l}
-  const PATH=new Set();
-  for(let j=0;j<WPI.length-1;j++){let[x,y]=WPI[j];const[x2,y2]=WPI[j+1];const dx=Math.sign(x2-x),dy=Math.sign(y2-y);
-    while(true){if(x>=0&&x<COLS&&y>=0&&y<ROWS)PATH.add(x+","+y);if(x===x2&&y===y2)break;x+=dx;y+=dy}}
-  return{i,WPI,WP,SEG,PLEN,PATH,EXIT:WP[WP.length-1][1]};
+  const PATH=new Set(),routes=[],portals=[];
+  for(const WPI of MAPS[i].r||[MAPS[i].p]){
+    const WP=WPI.map(([x,y])=>[x+.5,y+.5]),SEG=[];let PLEN=0;
+    for(let j=0;j<WP.length-1;j++){const a=WP[j],b=WP[j+1],l=Math.hypot(b[0]-a[0],b[1]-a[1]);SEG.push({a,b,l});PLEN+=l}
+    for(let j=0;j<WPI.length-1;j++){let[x,y]=WPI[j];const[x2,y2]=WPI[j+1];const dx=Math.sign(x2-x),dy=Math.sign(y2-y);
+      while(true){if(x>=0&&x<COLS&&y>=0&&y<ROWS)PATH.add(x+","+y);if(x===x2&&y===y2)break;x+=dx;y+=dy}}
+    const key=WPI[0].join(",");let pi=portals.findIndex(p=>p.key===key);
+    if(pi<0){pi=portals.length;portals.push({key,WP0:WP[0],side:sideOf(WPI[0]),routes:[]})}
+    portals[pi].routes.push(routes.length);
+    routes.push({WPI,WP,SEG,PLEN,portal:pi});
+  }
+  const r0=routes[0];
+  return{i,WPI:r0.WPI,WP:r0.WP,SEG:r0.SEG,PLEN:r0.PLEN,PATH,EXIT:r0.WP[r0.WP.length-1][1],routes,portals};
 }
 const GEO=MAPS.map((m,i)=>buildGeo(i));
 function setMap(i){
@@ -63,8 +85,10 @@ function setMap(i){
   ({WPI,WP,SEG,PLEN,PATH,EXIT}=GEO[i]);
   return true;
 }
-function posIn(g,d){for(const s of g.SEG){if(d<=s.l){const f=d/s.l;return[s.a[0]+(s.b[0]-s.a[0])*f,s.a[1]+(s.b[1]-s.a[1])*f]}d-=s.l}const e=g.WP[g.WP.length-1];return[e[0],e[1]]}
+function posIn(g,d,r){const R=(r&&g.routes&&g.routes[r])||g;for(const s of R.SEG){if(d<=s.l){const f=d/s.l;return[s.a[0]+(s.b[0]-s.a[0])*f,s.a[1]+(s.b[1]-s.a[1])*f]}d-=s.l}const e=R.WP[R.WP.length-1];return[e[0],e[1]]}
 function posAt(d){return posIn(GEO[MAPI],d)}
+const posE=e=>posIn(GEO[MAPI],e.d,e.r||0);
+const routeLen=e=>{const g=GEO[MAPI];return((g.routes[e.r||0])||g).PLEN};
 setMap(0);
 
 // ---------- levels: more waves, tougher and more crowded enemies as the level number climbs ----------
@@ -73,7 +97,10 @@ const levelWaves=L=>Math.min(30,5+Math.floor((L-1)/4));
 const levelMul=L=>1+(L-1)*.045;
 const levelGold=L=>200+Math.floor((L-1)/5)*15;
 const levelRw=L=>1+(L-1)*.03;
-const mapOf=L=>(L-1)%MAPS.length;
+// the 4 classic maps for now; the multi-route maps (4-7) join the schedule in step 4 of docs/rencana-banyak-jalan.md.
+// The owner can preview a map with #peta1..#peta8 (solo; it replaces the map of every level for that visit).
+const devMap=(()=>{const m=/^#peta([1-8])$/.exec(location.hash||"");return m?+m[1]-1:null})();
+const mapOf=L=>devMap!=null&&isOwner?devMap:(L-1)%4;
 const bossCount=(n,L)=>Math.min(5,Math.max(1,Math.ceil(L/25))+(n%10===0?1:0));
 
 // Raja until level 10; after that each map brings its own boss, and Naga Api joins the final waves from level 60
@@ -94,14 +121,23 @@ const ABK=["summon","stomp","breath"];
 const ARMY=[[0,1,2,4,5],[10,11,2,4,5],[12,13,14,4,5],[15,16,17,12,5]];
 const armyOf=L=>ARMY[Math.min(3,Math.floor((L-1)/25))];
 const WC={};
+// which portals a wave comes from: wave 1 from the first portal only, then a single portal, two, or all in turn
+function wavePortals(n,L){
+  const P=GEO[mapOf(L)].portals.length;if(P===1)return[0];
+  const k=n%3===1?1:n%3===2?Math.min(2,P):P,first=n%3===1?Math.floor(n/3)%P:0;
+  return Array.from({length:k},(_,j)=>(first+j)%P);
+}
+// the route of the i-th monster of a wave: portals take turns, and a forked portal alternates its branches
+function routeOf(i,ports,g){const p=g.portals[ports[i%ports.length]];return p.routes[Math.floor(i/ports.length)%p.routes.length]}
 function waveList(n,L){
-  const key=L+":"+n;if(WC[key])return WC[key];
+  const key=mapOf(L)+":"+L+":"+n;if(WC[key])return WC[key];
+  const geo=GEO[mapOf(L)],ports=wavePortals(n,L);
   const e=n+Math.floor((L-1)/3),list=[],cnt=Math.min(60,6+Math.floor(n*1.8)+Math.floor(L/6)),g=Math.max(.3,1-e*.02);
   const A=armyOf(L);
   for(let i=0;i<cnt;i++){let r=0;if(e>=3&&i%3===1)r=1;if(e>=5&&i%5===4)r=2;if(e>=12&&i%4===2)r=2;
     if(L>=8&&i%6===3)r=3;if(L>=15&&i%7===5)r=4;
-    const t=A[r];list.push([t,(r===1?.45:EN[t].spd<1?1.1:.7)*g])}
-  if(n%5===0||n>=levelWaves(L)){const bc=bossCount(n,L);for(let b=0;b<bc;b++)list.push([bossType(n,L,b,bc),2.5])}
+    const t=A[r];list.push([t,(r===1?.45:EN[t].spd<1?1.1:.7)*g,routeOf(i,ports,geo)])}
+  if(n%5===0||n>=levelWaves(L)){const bc=bossCount(n,L);for(let b=0;b<bc;b++)list.push([bossType(n,L,b,bc),2.5,routeOf(b,ports,geo)])}
   return WC[key]=list;
 }
 
@@ -159,12 +195,12 @@ function sim(dt){
   if(S.rg>0)S.rg=Math.max(0,S.rg-dt);
   const L=waveList(S.w,S.L);
   S.st-=dt;
-  while(S.st<=0&&S.si<L.length){const[t,g]=L[S.si++];const hp=EN[t].hp*S.wm;S.E.push({id:S.nid++,t,d:0,hp,mhp:hp,sl:0,sf:1,o:-1});S.st+=g}
+  while(S.st<=0&&S.si<L.length){const[t,g,r]=L[S.si++];const hp=EN[t].hp*S.wm;S.E.push({id:S.nid++,t,r:r||0,d:0,hp,mhp:hp,sl:0,sf:1,o:-1});S.st+=g}
   for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];const f=e.sl>0?e.sf:1;e.sl=Math.max(0,e.sl-dt);e.d+=EN[e.t].spd*f*(e.ab==="enrage"?1.4:1)*dt;
-    if(e.d>=PLEN){S.lv-=EN[e.t].leak;S.E.splice(i,1)}}
+    if(e.d>=routeLen(e)){S.lv-=EN[e.t].leak;S.E.splice(i,1)}}
   if(S.lv<=0){S.lv=0;S.ph="over";S.E=[];return}
   for(const e of S.E.slice())if(EN[e.t].boss&&e.hp>0)bossAct(e,dt);
-  const pos=S.E.map(e=>posAt(e.d));
+  const pos=S.E.map(posE);
   for(let ti=0;ti<S.T.length;ti++){
     const tw=S.T[ti];if(tw.fz>0){tw.fz=Math.max(0,tw.fz-dt);continue}
     tw.cd=(tw.cd||0)-dt;if(tw.cd>0)continue;
@@ -194,11 +230,11 @@ function bossAct(e,dt){
   if(m==="kalajengking"){e.at=(e.at==null?4:e.at)-dt;if(e.at<=0){if(e.ab==="burrow"){e.ab=null;e.at=4}else{e.ab="burrow";e.at=2.5}}return}
   if(m==="naga"&&!e.ab&&e.hp<(e.mhp||EN[e.t].hp*S.wm)*.5)e.ab="enrage";
   e.ac=(e.ac==null?3:e.ac)-dt;if(e.ac>0)return;
-  const[x,y]=posAt(e.d);
+  const[x,y]=posE(e);
   if(m==="rajalendir"){
     e.ac=6;if(S.E.length>240)return;
     abilityFx({t:e.t,k:"summon",x,y,id:e.id});
-    for(let i=0;i<3;i++){const hp=EN[0].hp*S.wm;S.E.push({id:S.nid++,t:0,d:Math.max(0,e.d-.2-i*.25),hp,mhp:hp,sl:0,sf:1,o:-1})}
+    for(let i=0;i<3;i++){const hp=EN[0].hp*S.wm;S.E.push({id:S.nid++,t:0,r:e.r||0,d:Math.max(0,e.d-.2-i*.25),hp,mhp:hp,sl:0,sf:1,o:-1})}
   }else if(m==="yeti"){
     e.ac=8;const r=1.8;abilityFx({t:e.t,k:"stomp",x,y,id:e.id,r});
     for(const tw of S.T)if(Math.hypot(tw.x+.5-x,tw.y+.5-y)<=r)tw.fz=3;
@@ -253,7 +289,7 @@ function encode(){
   return{ph:S.ph,L:S.L,mw:S.mw,rg:+S.rg.toFixed(1),w:S.w,lv:S.lv,cd:+S.cd.toFixed(1),si:S.si,st:+S.st.toFixed(2),wm:+S.wm.toFixed(3),sp:S.sp,h:S.h,nid:S.nid,
     P:S.P.map(p=>[p.p,p.n,p.c,Math.floor(p.g),p.k,p.off?1:0]),
     T:S.T.map(t=>[t.x,t.y,t.t,t.l,t.o,t.sp,Math.round((t.fz||0)*10)]),
-    E:S.E.map(e=>[e.id,e.t,Math.round(e.d*100),Math.ceil(e.hp),e.sl>0?Math.round(e.sf*100):100,Math.round(e.sl*10),e.o,e.ab==="burrow"?1:e.ab==="enrage"?2:0]),
+    E:S.E.map(e=>[e.id,e.t,Math.round(e.d*100),Math.ceil(e.hp),e.sl>0?Math.round(e.sf*100):100,Math.round(e.sl*10),e.o,e.ab==="burrow"?1:e.ab==="enrage"?2:0,e.r||0]),
     F:pendF,A:pendA};
 }
 const num=(v,d)=>{v=Number(v);return Number.isFinite(v)?v:d};
@@ -264,7 +300,7 @@ function decode(D){
   return{ph,L:int(D.L,1,MAXL),mw:int(D.mw,1,30),rg:num(D.rg,0),w:int(D.w,0,9999),lv:int(D.lv,0,99),cd:num(D.cd,0),si:int(D.si,0,9999),st:num(D.st,0),wm:num(D.wm,1),sp:[1,2,4,8].includes(D.sp)?D.sp:1,h:String(D.h),nid:int(D.nid,1,1e9),
     P:D.P.slice(0,12).filter(Array.isArray).map(a=>({p:String(a[0]),n:String(a[1]).slice(0,14),c:int(a[2],0,3),g:int(a[3],0,1e9),k:int(a[4],0,1e9),off:!!a[5]})),
     T:D.T.slice(0,120).filter(Array.isArray).map(a=>({x:int(a[0],0,COLS-1),y:int(a[1],0,ROWS-1),t:int(a[2],0,3),l:int(a[3],1,3),o:int(a[4],0,11),sp:int(a[5],0,1e6),fz:num(a[6],0)/10,cd:0})),
-    E:D.E.slice(0,300).filter(Array.isArray).map(a=>({id:int(a[0],0,1e9),t:int(a[1],0,EN.length-1),d:num(a[2],0)/100,hp:num(a[3],1),sf:num(a[4],100)/100,sl:num(a[5],0)/10,o:int(a[6],-1,11),ab:[null,"burrow","enrage"][int(a[7],0,2)]})),
+    E:D.E.slice(0,300).filter(Array.isArray).map(a=>({id:int(a[0],0,1e9),t:int(a[1],0,EN.length-1),d:num(a[2],0)/100,hp:num(a[3],1),sf:num(a[4],100)/100,sl:num(a[5],0)/10,o:int(a[6],-1,11),ab:[null,"burrow","enrage"][int(a[7],0,2)],r:int(a[8],0,7)})),
     F:Array.isArray(D.F)?D.F.slice(0,40).filter(Array.isArray):[],
     A:Array.isArray(D.A)?D.A.slice(0,12).filter(Array.isArray):[]};
 }
@@ -396,7 +432,7 @@ function renderMeta(){
     if(g.dataset.k!==h){g.dataset.k=h;g.innerHTML=h;const s=g.querySelector(".sel");if(s&&s.scrollIntoView&&!g.dataset.scrolled){g.dataset.scrolled=1;g.scrollTop=Math.max(0,s.offsetTop-g.offsetTop-90)}}
     $("#ownerNote").hidden=!isOwner;
     const L=selLevel,best=prof.stars[L]||0;
-    $("#lvInfo").innerHTML='<b>Level '+L+'</b> · '+MAPS[mapOf(L)].n+' · '+levelWaves(L)+' gelombang · Bos terakhir: '+EN[themedBoss(L)].n+(L>=60&&themedBoss(L)!==9?' + Naga Api':'')+
+    $("#lvInfo").innerHTML='<b>Level '+L+'</b> · '+MAPS[mapOf(L)].n+routeInfo(L)+' · '+levelWaves(L)+' gelombang · Bos terakhir: '+EN[themedBoss(L)].n+(L>=60&&themedBoss(L)!==9?' + Naga Api':'')+
       '<br><span class="hint">'+(best?"Terbaik "+starsHtml(best):unlocked(L)?"Belum ditamatkan":"Terkunci, mode uji pemilik")+(L>1?' · Musuh +'+Math.round((levelMul(L)-1)*100)+'% lebih kuat dari level 1':'')+' · Emas awal '+levelGold(L)+'</span>';
   }
   // shop
@@ -581,6 +617,10 @@ function observe(){
 }
 
 // ---------- UI ----------
+function routeInfo(L){const g=GEO[mapOf(L)],P=g.portals.length,fork=g.routes.length>P;
+  return P===1&&!fork?"":" · "+(P>1?P+" portal":"1 portal")+(fork?", jalan bercabang":"")}
+function portalText(n,L){const g=GEO[mapOf(L)];if(g.portals.length<2)return"";
+  return' · dari '+wavePortals(n,L).map(p=>g.portals[p].side).join(" & ")}
 const myGold=()=>{const i=mySlot();return i>=0?S.P[i].g:0};
 function buildShop(){
   const el=$("#shop");el.textContent="";
@@ -623,7 +663,7 @@ function ui(force){
   }else setBanner("");
   // wave box
   const L=S.w?waveList(S.w,S.L):[];
-  $("#waveTxt").innerHTML=S.ph==="build"?'Gelombang <b>'+(S.w+1)+'/'+S.mw+'</b> datang dalam <b>'+Math.ceil(Math.max(0,S.cd))+'</b> detik'+((S.w+1)%5===0||S.w+1>=S.mw?' · <b style="color:var(--danger)">ada bos</b>':''):
+  $("#waveTxt").innerHTML=S.ph==="build"?'Gelombang <b>'+(S.w+1)+'/'+S.mw+'</b> datang dalam <b>'+Math.ceil(Math.max(0,S.cd))+'</b> detik'+portalText(S.w+1,S.L)+((S.w+1)%5===0||S.w+1>=S.mw?' · <b style="color:var(--danger)">ada bos</b>':''):
     S.ph==="win"?'Level '+S.L+' tamat':
     S.ph==="wave"?'Gelombang <b>'+S.w+'</b> berjalan · <b>'+(S.E.length+Math.max(0,L.length-S.si))+'</b> musuh tersisa':
     S.ph==="lobby"?'Menunggu pemain di lobi':'Permainan selesai';
@@ -712,7 +752,8 @@ $("#botSpeeds").addEventListener("click",e=>{const b=e.target.closest("[data-bsp
 // It acts only through sendCmd, like a player, so it works solo, as host and as a client in a room.
 let isOwner=false,botOn=false,botAuto=true,botT=0,botMsg="",botLog=[];
 const BOT_MIX=[.3,.3,.15,.25];   // share of Panah, Meriam, Es, Jitu the bot aims for
-function pathSamples(){const g=GEO[MAPI];if(!g._smp){g._smp=[];for(let d=.25;d<g.PLEN;d+=.5){const p=posIn(g,d);if(p[0]>=0&&p[0]<COLS)g._smp.push(p)}}return g._smp}
+function pathSamples(){const g=GEO[MAPI];if(!g._smp){g._smp=[];const seen=new Set();
+  g.routes.forEach((R,r)=>{for(let d=.25;d<R.PLEN;d+=.5){const p=posIn(g,d,r),k=Math.round(p[0]*2)+","+Math.round(p[1]*2);if(p[0]>=0&&p[0]<COLS&&!seen.has(k)){seen.add(k);g._smp.push(p)}}})}return g._smp}
 function cover(sm,x,y,r){let n=0;const cx=x+.5,cy=y+.5,r2=r*r;for(const p of sm){const dx=p[0]-cx,dy=p[1]-cy;if(dx*dx+dy*dy<=r2)n++}return n}
 function botValue(t,l){if(t===2)return 12*l;const s=stat(t,l);return s.dmg/s.rate*(s.splash?1.8:1)}
 function botDecide(){
@@ -755,7 +796,7 @@ function botUi(){
 // ---------- read-only window for the view (view3d.js, audio.js); see KOLABORASI.md ----------
 BB.game={
   COLS,ROWS,LIVES,MAXL,PCOL,TW,EN,MAPS,HELP,
-  stat,mapOf,levelWaves,waveList,posIn,canBuild,towerAt,mySlot,myGold,
+  stat,mapOf,levelWaves,waveList,wavePortals,posIn,posE:e=>posIn(GEO[MAPI],e.d,e.r||0),canBuild,towerAt,mySlot,myGold,
   geo:i=>GEO[i==null?MAPI:i],
   spd:espd,
   get S(){return S},get selType(){return selType},get selXY(){return selXY},get hover(){return hover},

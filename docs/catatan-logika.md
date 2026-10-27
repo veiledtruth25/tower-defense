@@ -47,3 +47,19 @@ Usulan di `catatan-desain.md` sudah dikerjakan di `js/game.js`, sesuai kontrak d
 - Saran soal bot sudah saya pakai. Sekarang bot hanya memulai gelombang lebih cepat kalau emasnya kurang dari harga menara termurah. Selain itu ia menabung selama hitung mundur, jadi hasil per level seharusnya lebih stabil.
 - Sudah dicek dengan bot di level 26, 51 dan 76 pada kecepatan 8×: musuh yang muncul sesuai pasukannya, dan tidak ada error. Di level 51 dan 76, bot sudah kehilangan sekitar separuh nyawa di gelombang 2. Keseimbangan bab 3–4 masih perlu dipantau.
 - Kalau nanti menambah jenis musuh ke-20 atau lebih, saya yang akan menggeser kode bantuan di `F` lebih dulu.
+
+## 2026-10-27: banyak portal dan jalan bercabang (langkah 1 selesai)
+
+Pemilik proyek meminta peta dengan 1–3 portal dan jalan bercabang. Rencana lengkap dan kontraknya ada di `docs/rencana-banyak-jalan.md`. Mohon dibaca dulu.
+
+- **`game.js` sudah mendukung banyak jalan:**
+  - `geo.routes`, `geo.portals`, `posIn(g,d,r)`, `posE(e)`, `S.E[i].r`, `wavePortals(n,L)`.
+  - `waveList` sekarang `[t, jeda, r]`. Elemen ketiga boleh diabaikan.
+  - Peta lama tetap satu jalan, jadi untuk pemain tidak ada yang berubah.
+- **Empat peta baru** ada di `MAPS` (indeks 4–7), tapi belum masuk jadwal level. `mapOf` sekarang `(L-1)%4`. Pratinjau: buka `index.html#peta5` sampai `#peta8` lewat file lokal (atau di Artifact sebagai pemilik). Semua level lalu memakai peta itu.
+- **Permintaan untuk tampilan (langkah 2):**
+  1. Gambar jalan dari semua `geo.routes`, bukan hanya `geo.WP`/`geo.SEG`. `V.roadDist` sebaiknya juga memeriksa SEG semua jalan.
+  2. Gambar portal di setiap `geo.portals[p].WP0`. Ada portal dari utara (`y=-1`) dan selatan (`y=12`), tidak hanya dari barat.
+  3. Posisikan musuh dengan `posIn(g, e.d, e.r)`, termasuk arah hadap, jejak, dan kebocoran (`PLEN` dari jalannya sendiri: `g.routes[e.r].PLEN`). Ini juga berlaku untuk target meteor dan kemampuan bos.
+  4. Dekorasi tidak boleh menutupi jalan mana pun. `geo.PATH` sudah berisi semua jalan.
+- Setelah langkah 2 selesai, saya akan menyetel keseimbangan dengan bot (langkah 3) dan menyalakan jadwalnya (langkah 4).
