@@ -88,7 +88,7 @@ Tampilan menunda ledakan kematian sampai proyektil yang membunuh benar-benar men
 
 ### Titik sambungan yang diubah sesi desain di `game.js`
 
-Isi logika tidak diubah. Yang disentuh hanya:
+Sesi desain hanya menyentuh bagian berikut. Semuanya kecuali yang terakhir tidak mengubah jalannya permainan:
 
 - `buildGeo`, `GEO` dan `posIn` menggantikan isi `setMap`/`posAt` dengan hasil yang sama, supaya tampilan bisa membaca geometri peta mana pun.
 - `shotFx`, `fxDeath` dan `helperFx` sekarang mengirim event `shot`, `death` dan `help`. Hitungan bos di profil tetap di `fxDeath`.
@@ -96,6 +96,7 @@ Isi logika tidak diubah. Yang disentuh hanya:
 - Input papan memakai `BB.view.pick`, ikon toko memakai `BB.view.icon`, dan `showGame`/`leave` memanggil `BB.view.show`.
 - `leave()` memanggil `setBanner("")`. Ini memperbaiki bug lama: banner menang/kalah tertinggal saat main lagi.
 - `BB.game` ditambahkan di akhir file.
+- **Pasukan per bab (2026-10-27, atas permintaan pemilik):** `EN` indeks 10–17 (Goblin sampai Golem Lava) ditambahkan di belakang, `ARMY`/`armyOf` ditambahkan, dan perulangan di `waveList` sekarang mengambil jenis tiap peran (dasar, cepat, tebal, selingan A, selingan B) dari pasukan bab level itu. Bab 1 (level 1–25) tetap sama persis. Angka dan cara mengukurnya ada di `docs/catatan-desain.md`. Selebihnya `game.js` tidak diubah, dan sesi logika bebas menyetel angkanya.
 
 ## Layar permainan (HUD)
 

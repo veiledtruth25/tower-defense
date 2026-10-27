@@ -17,16 +17,9 @@ const DEFAULT_MODEL=["lendir","kilat","kura","raja"];
 const BOSS_MODELS=new Set(["raja","rajalendir","kalajengking","yeti","naga"]);
 // models made before the logic has an enemy type for them. Only the gallery (#galeri) and its menu
 // battle use them, with these stats; once EN has a type with the same model, the extra is dropped.
-A.EXTRA=[
-  {n:"Goblin",model:"goblin",hp:48,spd:1.35,r:.26,col:"#6f9a4a",ds:"Goblin berpentungan, datang bergerombol"},
-  {n:"Serigala",model:"serigala",hp:30,spd:2.5,r:.27,col:"#7d8794",ds:"Berlari sangat cepat dalam kawanan"},
-  {n:"Tengkorak",model:"tengkorak",hp:55,spd:1.25,r:.26,col:"#e8e2cf",res:{3:.5},ds:"Prajurit tulang. Peluru Jitu menembus rongganya, hanya 50% kena"},
-  {n:"Kelelawar",model:"kelelawar",hp:26,spd:2.8,r:.23,col:"#4a3a5e",res:{1:.4},ds:"Terbang zig-zag. Ledakan Meriam hanya 40% kena"},
-  {n:"Mumi",model:"mumi",hp:220,spd:.75,r:.34,col:"#d9cfb0",ds:"Lambat dan sangat tahan pukulan"},
-  {n:"Iblis",model:"iblis",hp:60,spd:1.5,r:.25,col:"#c8382c",res:{2:.5},ds:"Setan kecil bergarpu. Serangan Es hanya 50% kena"},
-  {n:"Anjing Api",model:"anjingapi",hp:36,spd:2.7,r:.29,col:"#2e2628",ds:"Anjing neraka yang meninggalkan jejak bara"},
-  {n:"Golem Lava",model:"golemlava",hp:260,spd:.7,r:.37,col:"#3a302c",res:{0:.3},ds:"Batu dan magma. Panah hanya 30% kena"}
-];
+// Empty while every model has its EN type. An entry looks like
+// {n:"Goblin",model:"goblin",hp:45,spd:1.35,r:.26,col:"#6f9a4a",res:{0:.5},ds:"..."}
+A.EXTRA=[];
 const enModel=i=>{const e=gm().EN[i]||{};return e.model||DEFAULT_MODEL[i]||"x"};
 let xl=null,xn=-1;
 const extras=()=>{const EN=gm().EN;if(xn!==EN.length){xn=EN.length;const have=new Set(EN.map((e,i)=>enModel(i)));xl=A.EXTRA.filter(x=>!have.has(x.model))}return xl};
