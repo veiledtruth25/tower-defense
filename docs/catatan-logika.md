@@ -75,3 +75,17 @@ Pemilik proyek meminta peta dengan 1–3 portal dan jalan bercabang. Rencana len
 - **Belum bisa dibuktikan:** penyebab pastinya di claude.ai. Di server sendiri alur normal sudah berjalan, dan perbaikan di atas menutup kasus presence hilang. Kalau di claude.ai masih ada masalah, cek juga apakah pemain lain punya akses Contributor (topik `cmd`/`state` hanya dibuka untuk level itu).
 - **Uji:** `tests/multiplayer.js` (dua pemain, ada varian `nopresence`) dan `tests/admin.js` (pengaman bot).
 - Artifact di claude.ai belum diterbitkan ulang dengan perubahan ini. Terbitkan dari sesi yang memegang Artifact; file tambahan baru: `js/net-ws.js`.
+
+## 2026-10-27 (lanjutan): putus-sambung dan dua host
+
+Gejala di produksi: dua pemain di satu room, masing-masing mengaku host dan menjalankan permainannya sendiri (level dan jumlah pemain di lobi berbeda). Pemain lain tidak terhitung dan emasnya tidak bertambah.
+
+- **Penyebab 1 (server):** koneksi putus lalu menyambung lagi sebelum server sadar soket lamanya mati, sehingga mendapat identitas (`peer`) baru. `S.h` host masih berisi id lama, jadi semua pesan `state` darinya ditolak (`msg.data.h!==msg.peer`), dan dua host tidak pernah menyatu.
+- **Penyebab 2 (game):** host yang mengalah tidak pernah menghapus iklan lobinya, karena `lobbyPresence()` hanya dipanggil dari cabang `isHost`. Lobi lalu menampilkan dua host untuk satu room.
+- **Perbaikan:**
+  - Server menahan keanggotaan 6 detik setelah koneksi putus (`GRACE_MS`).
+  - Tab yang sama yang menyambung lagi mengambil alih id lamanya. Tab hasil duplikat, yang membawa token sama tapi id tab lain, mendapat id baru.
+  - Semua pemain memperbarui status lobinya, dan host yang mengalah langsung menghapus iklannya.
+  - Host yang id-nya tetap berganti (misalnya server restart) mengganti `S.h` dan slotnya sendiri di dalam permainan.
+- **Uji:** `tests/reconnect.js`. Di kode lama gagal di dua pemeriksaan (tamu kedip "keluar" dan dua pengiklan host di lobi), di kode baru semuanya lulus.
+- **Peringatan:** loop permainan memakai `requestAnimationFrame`. Tab host yang disembunyikan berhenti menghitung dan mengirim state, jadi saat menguji dengan dua jendela, biarkan jendela host tetap terlihat.
