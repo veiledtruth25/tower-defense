@@ -19,7 +19,14 @@ const EN=[
   {n:"Lendir",hp:40, spd:1.4, rw:5, r:.27,col:"#8fd16a",leak:1},
   {n:"Kilat", hp:24, spd:2.6, rw:4, r:.21,col:"#f5e07a",leak:1},
   {n:"Kura",  hp:170,spd:.8,  rw:12,r:.35,col:"#b08865",leak:2},
-  {n:"Raja",  hp:1100,spd:.55,rw:90,r:.45,col:"#e5625a",leak:5}
+  {n:"Raja",  hp:1100,spd:.55,rw:90,r:.45,col:"#e5625a",leak:5,model:"raja",boss:true},
+  // res: damage taken from a tower type (index into TW), 1 when absent
+  {n:"Hantu",hp:55,spd:1.5,rw:6,r:.27,col:"#c6bff6",leak:1,model:"hantu",res:{1:.3},ds:"Melayang tembus pandang. Ledakan Meriam hanya 30% kena"},
+  {n:"Perisai",hp:160,spd:.95,rw:10,r:.3,col:"#9aa6bd",leak:1,model:"perisai",res:{0:.25},ds:"Goblin berzirah. Panah memantul, hanya 25% kena"},
+  {n:"Raja Lendir",hp:900,spd:.6,rw:80,r:.45,col:"#8fd16a",leak:5,model:"rajalendir",boss:true,ds:"Bos: tiap 6 detik memuntahkan 3 lendir kecil"},
+  {n:"Kalajengking",hp:1200,spd:.75,rw:100,r:.45,col:"#c97b35",leak:5,model:"kalajengking",boss:true,ds:"Bos: menyelam ke pasir 2,5 detik dan kebal tembakan menara"},
+  {n:"Yeti",hp:1500,spd:.5,rw:110,r:.45,col:"#eef3f8",leak:5,model:"yeti",boss:true,ds:"Bos: tiap 8 detik menghentak, menara di dekatnya beku 3 detik"},
+  {n:"Naga Api",hp:2000,spd:.62,rw:140,r:.45,col:"#d84a30",leak:6,model:"naga",boss:true,ds:"Bos: semburan api melumpuhkan menara 3 detik, mengamuk di bawah 50% HP"}
 ];
 function stat(t,l){const b=TW[t],k=l-1;return{dmg:b.dmg*Math.pow(1.65,k),range:b.range+.35*k,rate:b.rate*Math.pow(.88,k),splash:b.splash||0,slow:b.slow?Math.max(.25,b.slow-.08*k):0,slowDur:b.slowDur||0}}
 const upCost=(t,l)=>Math.round(TW[t].cost*.75*l);
@@ -60,12 +67,25 @@ const levelRw=L=>1+(L-1)*.03;
 const mapOf=L=>(L-1)%MAPS.length;
 const bossCount=(n,L)=>Math.min(5,Math.max(1,Math.ceil(L/25))+(n%10===0?1:0));
 
+// Raja until level 10; after that each map brings its own boss, and Naga Api joins the final waves from level 60
+const themedBoss=L=>L<10?3:[L>=40?9:3,8,6,7][mapOf(L)];
+function bossType(n,L,b,bc){
+  if(L<10)return 3;
+  if(n>=levelWaves(L))return L>=60&&bc>1&&b===bc-1?9:b%2?3:themedBoss(L);
+  return L>=20&&b===0?themedBoss(L):3;
+}
+const espd=e=>EN[e.t].spd*(e.sl>0?e.sf:1)*(e.ab==="enrage"?1.4:1);
+const resist=(e,tt)=>{const r=EN[e.t].res;return r&&r[tt]!=null?r[tt]:1};
+const ABK=["summon","stomp","breath"];
+
 const WC={};
 function waveList(n,L){
   const key=L+":"+n;if(WC[key])return WC[key];
   const e=n+Math.floor((L-1)/3),list=[],cnt=Math.min(60,6+Math.floor(n*1.8)+Math.floor(L/6)),g=Math.max(.3,1-e*.02);
-  for(let i=0;i<cnt;i++){let t=0;if(e>=3&&i%3===1)t=1;if(e>=5&&i%5===4)t=2;if(e>=12&&i%4===2)t=2;list.push([t,(t===1?.45:t===2?1.1:.7)*g])}
-  if(n%5===0||n>=levelWaves(L))for(let b=0;b<bossCount(n,L);b++)list.push([3,2.5]);
+  for(let i=0;i<cnt;i++){let t=0;if(e>=3&&i%3===1)t=1;if(e>=5&&i%5===4)t=2;if(e>=12&&i%4===2)t=2;
+    if(L>=8&&i%6===3)t=4;if(L>=15&&i%7===5)t=5;
+    list.push([t,(t===1?.45:t===2||t===5?1.1:.7)*g])}
+  if(n%5===0||n>=levelWaves(L)){const bc=bossCount(n,L);for(let b=0;b<bc;b++)list.push([bossType(n,L,b,bc),2.5])}
   return WC[key]=list;
 }
 
@@ -82,7 +102,7 @@ const HELP=[
 let room=null, gr=null, unsubs=[], roomCode="";
 let S=null, isHost=false, myPeer=null, mode="";
 let wantHost=false, joinTimer=0, hostGoneTimer=0, lastBc=0, lastLobbyPres=0;
-let pendF=[];
+let pendF=[],pendA=[];
 let selType=null, selXY=null, hover=null;
 
 const myName=()=>($("#nameIn").value.trim().slice(0,14)||"Pemain");
@@ -113,8 +133,8 @@ function addFx(ti,ex,ey){
   if(gr&&pendF.length<40)pendF.push([ti,Math.round(ex*10),Math.round(ey*10)]);
 }
 function deathFx(t,x,y){fxDeath(t,x,y);if(gr&&pendF.length<40)pendF.push([-1-t,Math.round(x*10),Math.round(y*10)])}
-function hit(e,s,o){
-  if(e.hp<=0)return;e.hp-=s.dmg;e.o=o;
+function hit(e,s,o,m){
+  if(e.hp<=0)return;e.hp-=s.dmg*(m==null?1:m);e.o=o;
   if(s.slow){if(e.sl<=0||s.slow<e.sf)e.sf=s.slow;e.sl=Math.max(e.sl,s.slowDur)}
 }
 function sim(dt){
@@ -123,21 +143,23 @@ function sim(dt){
   if(S.rg>0)S.rg=Math.max(0,S.rg-dt);
   const L=waveList(S.w,S.L);
   S.st-=dt;
-  while(S.st<=0&&S.si<L.length){const[t,g]=L[S.si++];const hp=EN[t].hp*S.wm;S.E.push({id:S.nid++,t,d:0,hp,sl:0,sf:1,o:-1});S.st+=g}
-  for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];const f=e.sl>0?e.sf:1;e.sl=Math.max(0,e.sl-dt);e.d+=EN[e.t].spd*f*dt;
+  while(S.st<=0&&S.si<L.length){const[t,g]=L[S.si++];const hp=EN[t].hp*S.wm;S.E.push({id:S.nid++,t,d:0,hp,mhp:hp,sl:0,sf:1,o:-1});S.st+=g}
+  for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];const f=e.sl>0?e.sf:1;e.sl=Math.max(0,e.sl-dt);e.d+=EN[e.t].spd*f*(e.ab==="enrage"?1.4:1)*dt;
     if(e.d>=PLEN){S.lv-=EN[e.t].leak;S.E.splice(i,1)}}
   if(S.lv<=0){S.lv=0;S.ph="over";S.E=[];return}
+  for(const e of S.E.slice())if(EN[e.t].boss&&e.hp>0)bossAct(e,dt);
   const pos=S.E.map(e=>posAt(e.d));
   for(let ti=0;ti<S.T.length;ti++){
-    const tw=S.T[ti];tw.cd=(tw.cd||0)-dt;if(tw.cd>0)continue;
+    const tw=S.T[ti];if(tw.fz>0){tw.fz=Math.max(0,tw.fz-dt);continue}
+    tw.cd=(tw.cd||0)-dt;if(tw.cd>0)continue;
     const s=stat(tw.t,tw.l);if(S.rg>0)s.dmg*=1.5;const cx=tw.x+.5,cy=tw.y+.5,r2=s.range*s.range;
     let bi=-1,bd=-1;
-    for(let i=0;i<S.E.length;i++){const e=S.E[i];if(e.hp<=0)continue;const p=pos[i],dx=p[0]-cx,dy=p[1]-cy;if(dx*dx+dy*dy<=r2&&e.d>bd){bd=e.d;bi=i}}
+    for(let i=0;i<S.E.length;i++){const e=S.E[i];if(e.hp<=0||e.ab==="burrow")continue;const p=pos[i],dx=p[0]-cx,dy=p[1]-cy;if(dx*dx+dy*dy<=r2&&e.d>bd){bd=e.d;bi=i}}
     if(bi<0)continue;
     tw.cd=s.rate;
     const[ex,ey]=pos[bi];
-    if(s.splash){for(let i=0;i<S.E.length;i++){const p=pos[i];if(Math.hypot(p[0]-ex,p[1]-ey)<=s.splash)hit(S.E[i],s,tw.o)}}
-    else hit(S.E[bi],s,tw.o);
+    if(s.splash){for(let i=0;i<S.E.length;i++){const e=S.E[i],p=pos[i];if(e.ab!=="burrow"&&Math.hypot(p[0]-ex,p[1]-ey)<=s.splash)hit(e,s,tw.o,resist(e,tw.t))}}
+    else hit(S.E[bi],s,tw.o,resist(S.E[bi],tw.t));
     addFx(ti,ex,ey);
   }
   for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];if(e.hp>0)continue;
@@ -149,6 +171,32 @@ function sim(dt){
     if(S.w>=S.mw){S.ph="win";S.rg=0}
     else{S.ph="build";S.cd=12;toast("Gelombang "+S.w+" selesai. Bonus +"+bonus+" emas untuk semua.")}
   }
+}
+// boss abilities (host only). One-off actions go to the view as "ability"; lasting states sit in e.ab and tw.fz
+function bossAct(e,dt){
+  const m=EN[e.t].model;
+  if(m==="kalajengking"){e.at=(e.at==null?4:e.at)-dt;if(e.at<=0){if(e.ab==="burrow"){e.ab=null;e.at=4}else{e.ab="burrow";e.at=2.5}}return}
+  if(m==="naga"&&!e.ab&&e.hp<(e.mhp||EN[e.t].hp*S.wm)*.5)e.ab="enrage";
+  e.ac=(e.ac==null?3:e.ac)-dt;if(e.ac>0)return;
+  const[x,y]=posAt(e.d);
+  if(m==="rajalendir"){
+    e.ac=6;if(S.E.length>240)return;
+    abilityFx({t:e.t,k:"summon",x,y,id:e.id});
+    for(let i=0;i<3;i++){const hp=EN[0].hp*S.wm;S.E.push({id:S.nid++,t:0,d:Math.max(0,e.d-.2-i*.25),hp,mhp:hp,sl:0,sf:1,o:-1})}
+  }else if(m==="yeti"){
+    e.ac=8;const r=1.8;abilityFx({t:e.t,k:"stomp",x,y,id:e.id,r});
+    for(const tw of S.T)if(Math.hypot(tw.x+.5-x,tw.y+.5-y)<=r)tw.fz=3;
+  }else if(m==="naga"){
+    let best=null,bd=3;for(const tw of S.T){const d=Math.hypot(tw.x+.5-x,tw.y+.5-y);if(d<=bd){bd=d;best=tw}}
+    if(!best){e.ac=.5;return}
+    e.ac=e.ab==="enrage"?4.5:6;const tx=best.x+.5,ty=best.y+.5,r=.8;
+    abilityFx({t:e.t,k:"breath",x,y,id:e.id,tx,ty,r});
+    for(const tw of S.T)if(Math.hypot(tw.x+.5-tx,tw.y+.5-ty)<=r+.01)tw.fz=3;
+  }else e.ac=1e9;
+}
+function abilityFx(a){
+  BB.emit("ability",a);
+  if(gr&&pendA.length<12){const r1=v=>Math.round((v||0)*10);pendA.push([a.t,ABK.indexOf(a.k),r1(a.x),r1(a.y),a.id||0,r1(a.tx),r1(a.ty),r1(a.r)])}
 }
 function handle(c,slot,local){
   if(!S||!c||typeof c!=="object")return;
@@ -174,22 +222,22 @@ function handle(c,slot,local){
 function resetGame(){S.T=[];S.E=[];S.w=0;S.lv=LIVES;S.ph="build";S.cd=20;S.sp=1;S.rg=0;S.mw=levelWaves(S.L);
   S.P.forEach(p=>{p.g=mode==="solo"?levelGold(S.L):Math.round(levelGold(S.L)*.8);p.k=0})}
 function applyHelp(k,slot){
-  if(k===0){for(const e of S.E)hit(e,{dmg:EN[e.t].hp*S.wm*(e.t===3?.2:.6)},slot)}
+  if(k===0){for(const e of S.E)hit(e,{dmg:EN[e.t].hp*S.wm*(EN[e.t].boss?.2:.6)},slot)}
   else if(k===1){for(const e of S.E){e.sl=4;e.sf=.05}}
   else if(k===2){S.P[slot].g+=150}
   else if(k===3){S.lv=Math.min(99,S.lv+5)}
   else if(k===4){S.rg=15}
   helperFx(k,slot);
-  if(gr)pendF.push([-10-k,slot,0]);
+  if(gr)pendF.push([-20-k,slot,0]);
 }
 
 // ---------- wire format ----------
 function encode(){
   return{ph:S.ph,L:S.L,mw:S.mw,rg:+S.rg.toFixed(1),w:S.w,lv:S.lv,cd:+S.cd.toFixed(1),si:S.si,st:+S.st.toFixed(2),wm:+S.wm.toFixed(3),sp:S.sp,h:S.h,nid:S.nid,
     P:S.P.map(p=>[p.p,p.n,p.c,Math.floor(p.g),p.k,p.off?1:0]),
-    T:S.T.map(t=>[t.x,t.y,t.t,t.l,t.o,t.sp]),
-    E:S.E.map(e=>[e.id,e.t,Math.round(e.d*100),Math.ceil(e.hp),e.sl>0?Math.round(e.sf*100):100,Math.round(e.sl*10),e.o]),
-    F:pendF};
+    T:S.T.map(t=>[t.x,t.y,t.t,t.l,t.o,t.sp,Math.round((t.fz||0)*10)]),
+    E:S.E.map(e=>[e.id,e.t,Math.round(e.d*100),Math.ceil(e.hp),e.sl>0?Math.round(e.sf*100):100,Math.round(e.sl*10),e.o,e.ab==="burrow"?1:e.ab==="enrage"?2:0]),
+    F:pendF,A:pendA};
 }
 const num=(v,d)=>{v=Number(v);return Number.isFinite(v)?v:d};
 const int=(v,lo,hi)=>Math.min(hi,Math.max(lo,Math.round(num(v,lo))));
@@ -198,9 +246,10 @@ function decode(D){
   const ph=["lobby","build","wave","over","win"].includes(D.ph)?D.ph:"build";
   return{ph,L:int(D.L,1,MAXL),mw:int(D.mw,1,30),rg:num(D.rg,0),w:int(D.w,0,9999),lv:int(D.lv,0,99),cd:num(D.cd,0),si:int(D.si,0,9999),st:num(D.st,0),wm:num(D.wm,1),sp:D.sp===2?2:1,h:String(D.h),nid:int(D.nid,1,1e9),
     P:D.P.slice(0,12).filter(Array.isArray).map(a=>({p:String(a[0]),n:String(a[1]).slice(0,14),c:int(a[2],0,3),g:int(a[3],0,1e9),k:int(a[4],0,1e9),off:!!a[5]})),
-    T:D.T.slice(0,120).filter(Array.isArray).map(a=>({x:int(a[0],0,COLS-1),y:int(a[1],0,ROWS-1),t:int(a[2],0,3),l:int(a[3],1,3),o:int(a[4],0,11),sp:int(a[5],0,1e6),cd:0})),
-    E:D.E.slice(0,300).filter(Array.isArray).map(a=>({id:int(a[0],0,1e9),t:int(a[1],0,3),d:num(a[2],0)/100,hp:num(a[3],1),sf:num(a[4],100)/100,sl:num(a[5],0)/10,o:int(a[6],-1,11)})),
-    F:Array.isArray(D.F)?D.F.slice(0,40).filter(Array.isArray):[]};
+    T:D.T.slice(0,120).filter(Array.isArray).map(a=>({x:int(a[0],0,COLS-1),y:int(a[1],0,ROWS-1),t:int(a[2],0,3),l:int(a[3],1,3),o:int(a[4],0,11),sp:int(a[5],0,1e6),fz:num(a[6],0)/10,cd:0})),
+    E:D.E.slice(0,300).filter(Array.isArray).map(a=>({id:int(a[0],0,1e9),t:int(a[1],0,EN.length-1),d:num(a[2],0)/100,hp:num(a[3],1),sf:num(a[4],100)/100,sl:num(a[5],0)/10,o:int(a[6],-1,11),ab:[null,"burrow","enrage"][int(a[7],0,2)]})),
+    F:Array.isArray(D.F)?D.F.slice(0,40).filter(Array.isArray):[],
+    A:Array.isArray(D.A)?D.A.slice(0,12).filter(Array.isArray):[]};
 }
 
 // ---------- player progress: levels, gems, helpers, challenges, daily claim, events ----------
@@ -209,7 +258,7 @@ const ACH=[
   {id:"level",n:"Penjelajah",ds:"Tamatkan level {t}",stat:p=>maxCleared(p),t:[5,15,30,60,100],r:[30,50,80,120,300]},
   {id:"stars",n:"Bintang Benteng",ds:"Kumpulkan {t} bintang",stat:p=>totalStars(p),t:[15,60,150,300],r:[25,50,100,200]},
   {id:"towers",n:"Arsitek",ds:"Bangun {t} menara",stat:p=>p.towers,t:[25,100,400],r:[15,40,90]},
-  {id:"bosses",n:"Penakluk Raja",ds:"Kalahkan {t} Raja",stat:p=>p.bosses,t:[3,15,50],r:[25,60,120]},
+  {id:"bosses",n:"Penakluk Bos",ds:"Kalahkan {t} bos",stat:p=>p.bosses,t:[3,15,50],r:[25,60,120]},
   {id:"used",n:"Ahli Strategi",ds:"Pakai {t} bantuan",stat:p=>p.used,t:[5,25,100],r:[15,35,80]}
 ];
 const DAILY=[{gems:20},{items:{gold:1}},{gems:30},{items:{freeze:1}},{gems:40},{items:{meteor:1}},{gems:80,items:{repair:1}}];
@@ -328,7 +377,7 @@ function renderMeta(){
       h+='<button type="button" class="lv'+(L===selLevel?" sel":"")+(L%5===0?" boss":"")+'" data-l="'+L+'"'+(ok?"":" disabled")+' aria-label="Level '+L+'">'+L+'<small>'+(st?"★".repeat(st):"")+'</small></button>'}
     if(g.dataset.k!==h){g.dataset.k=h;g.innerHTML=h;const s=g.querySelector(".sel");if(s&&s.scrollIntoView&&!g.dataset.scrolled){g.dataset.scrolled=1;g.scrollTop=Math.max(0,s.offsetTop-g.offsetTop-90)}}
     const L=selLevel,best=prof.stars[L]||0;
-    $("#lvInfo").innerHTML='<b>Level '+L+'</b> · '+MAPS[mapOf(L)].n+' · '+levelWaves(L)+' gelombang · Raja di gelombang terakhir'+
+    $("#lvInfo").innerHTML='<b>Level '+L+'</b> · '+MAPS[mapOf(L)].n+' · '+levelWaves(L)+' gelombang · Bos terakhir: '+EN[themedBoss(L)].n+(L>=60&&themedBoss(L)!==9?' + Naga Api':'')+
       '<br><span class="hint">'+(best?"Terbaik "+starsHtml(best):"Belum ditamatkan")+(L>1?' · Musuh +'+Math.round((levelMul(L)-1)*100)+'% lebih kuat dari level 1':'')+' · Emas awal '+levelGold(L)+'</span>';
   }
   // shop
@@ -436,9 +485,11 @@ function onState(msg){
   if(isHost){if(myPeer&&msg.peer<myPeer){isHost=false}else return}
   const ns=decode(msg.data);if(!ns)return;
   clearTimeout(joinTimer);wantHost=false;
-  for(const f of ns.F){const ti=int(f[0],-20,119),x=num(f[1],0)/10,y=num(f[2],0)/10;
-    if(ti<=-10){if(-10-ti<HELP.length)helperFx(-10-ti,int(f[1],0,11),ns)}
-    else if(ti<0){if(ti>=-4)fxDeath(-1-ti,x,y)}else{const t=ns.T[ti];if(t)shotFx(t.t,t.x+.5,t.y+.5,x,y)}}
+  for(const f of ns.F){const ti=int(f[0],-30,119),x=num(f[1],0)/10,y=num(f[2],0)/10;
+    if(ti<=-20){if(-20-ti<HELP.length)helperFx(-20-ti,int(f[1],0,11),ns)}
+    else if(ti<0){if(-1-ti<EN.length)fxDeath(-1-ti,x,y)}else{const t=ns.T[ti];if(t)shotFx(t.t,t.x+.5,t.y+.5,x,y)}}
+  for(const a of ns.A){const k=ABK[int(a[1],-1,ABK.length-1)];if(!k)continue;const d=v=>num(v,0)/10;
+    const ev={t:int(a[0],0,EN.length-1),k,x:d(a[2]),y:d(a[3]),id:int(a[4],0,1e9)};if(k==="breath"){ev.tx=d(a[5]);ev.ty=d(a[6])}if(k!=="summon")ev.r=d(a[7]);BB.emit("ability",ev)}
   S=ns;
 }
 function onCmd(msg){if(!isHost||!S||msg.sameTab)return;handle(msg.data,S.P.findIndex(p=>p.p===msg.peer&&!p.off),false)}
@@ -449,9 +500,9 @@ function sendCmd(c){
 }
 function broadcast(){
   const D=encode();let s=JSON.stringify(D);
-  if(s.length>3800){D.F=[];s=JSON.stringify(D)}
+  if(s.length>3800){D.F=[];D.A=[];s=JSON.stringify(D)}
   while(s.length>3800&&D.E.length){D.E.length=Math.floor(D.E.length*.8);s=JSON.stringify(D)}
-  pendF=[];
+  pendF=[];pendA=[];
   gr.emit("state",D).catch(e=>{if(e&&e.code==="not_permitted")toast("Aksesmu tidak cukup untuk menjadi host. Minta akses Contributor.")});
 }
 function lobbyPresence(){
@@ -481,7 +532,7 @@ function showGame(){
 // ---------- hooks to the view: it draws and plays these, the logic never waits on it ----------
 function shotFx(t,x1,y1,x2,y2){BB.emit("shot",{t,x1,y1,x2,y2})}
 function fxDeath(t,x,y){
-  if(t===3&&S&&mySlot()>=0){prof.bosses++;saveProfile()}
+  if(EN[t].boss&&S&&mySlot()>=0){prof.bosses++;saveProfile()}
   const w=S?S.w:1;BB.emit("death",{t,x,y,gold:Math.round(EN[t].rw*(1+w*.04)*levelRw(S?S.L:1))});
 }
 function helperFx(k,slot,st){
@@ -546,7 +597,7 @@ function ui(force){
   }else setBanner("");
   // wave box
   const L=S.w?waveList(S.w,S.L):[];
-  $("#waveTxt").innerHTML=S.ph==="build"?'Gelombang <b>'+(S.w+1)+'/'+S.mw+'</b> datang dalam <b>'+Math.ceil(Math.max(0,S.cd))+'</b> detik'+((S.w+1)%5===0||S.w+1>=S.mw?' · <b style="color:var(--danger)">ada Raja</b>':''):
+  $("#waveTxt").innerHTML=S.ph==="build"?'Gelombang <b>'+(S.w+1)+'/'+S.mw+'</b> datang dalam <b>'+Math.ceil(Math.max(0,S.cd))+'</b> detik'+((S.w+1)%5===0||S.w+1>=S.mw?' · <b style="color:var(--danger)">ada bos</b>':''):
     S.ph==="win"?'Level '+S.L+' tamat':
     S.ph==="wave"?'Gelombang <b>'+S.w+'</b> berjalan · <b>'+(S.E.length+Math.max(0,L.length-S.si))+'</b> musuh tersisa':
     S.ph==="lobby"?'Menunggu pemain di lobi':'Permainan selesai';
@@ -631,7 +682,7 @@ BB.game={
   COLS,ROWS,LIVES,MAXL,PCOL,TW,EN,MAPS,HELP,
   stat,mapOf,levelWaves,waveList,posIn,canBuild,towerAt,mySlot,myGold,
   geo:i=>GEO[i==null?MAPI:i],
-  spd:e=>EN[e.t].spd*(e.sl>0?e.sf:1),
+  spd:espd,
   get S(){return S},get selType(){return selType},get selXY(){return selXY},get hover(){return hover},
   get selLevel(){return selLevel},get mode(){return mode},get isHost(){return isHost}
 };
@@ -645,7 +696,7 @@ function frame(now){
       if(gr&&now-lastBc>125){lastBc=now;broadcast()}
       if(gr&&now-lastLobbyPres>2500){lastLobbyPres=now;lobbyPresence()}}
     else{const k=dt*S.sp;
-      if(S.ph==="wave")for(const e of S.E){e.d+=EN[e.t].spd*(e.sl>0?e.sf:1)*k;e.sl=Math.max(0,e.sl-k)}
+      if(S.ph==="wave")for(const e of S.E){e.d+=espd(e)*k;e.sl=Math.max(0,e.sl-k)}
       if(S.ph==="build")S.cd=Math.max(0,S.cd-k)}
   }
   const inGame=!$("#scrGame").hidden;
