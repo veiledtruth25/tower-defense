@@ -730,7 +730,8 @@ function botDecide(){
   for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){if(!canBuild(x,y))continue;const c=cover(sm,x,y,r);if(c>bc){bc=c;bx=x;by=y}}
   if(bx>=0)consider({a:"b",x:bx,y:by,t:tt},bc*botValue(tt,1)*1.15,TW[tt].cost,"bangun "+TW[tt].n+" di ("+bx+","+by+")");
   if(best&&best.cost<=gold){botMsg=best.why[0].toUpperCase()+best.why.slice(1)+".";return best.c}
-  if(S.ph==="build"&&S.cd>.5){botMsg="Emas belum cukup, mulai gelombang.";return{a:"n"}}
+  // start early only when even the cheapest tower is out of reach; otherwise save during the countdown
+  if(S.ph==="build"&&S.cd>.5&&gold<Math.min(...TW.map(t=>t.cost))){botMsg="Emas habis, mulai gelombang.";return{a:"n"}}
   botMsg=best?"Menabung untuk "+best.why+".":"Menunggu.";return null;
 }
 function botTick(dt){

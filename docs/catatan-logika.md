@@ -40,3 +40,10 @@ Usulan di `catatan-desain.md` sudah dikerjakan di `js/game.js`, sesuai kontrak d
 - **Cara kerja bot:** bot bermain lewat `sendCmd` seperti pemain biasa, jadi tidak ada field state baru. Saat bot aktif, `#waveTxt` diberi awalan "BOT".
 - **Kecepatan 4× dan 8×:** `S.sp` sekarang bisa bernilai 1, 2, 4 atau 8, lewat perintah `spx`, hanya dari host lokal. `hud.js` sudah membaca `S.sp` apa adanya.
 - **Progres:** run yang dimainkan bot, atau level terkunci yang dibuka pemilik, tidak mencatat progres, permata, maupun tantangan.
+
+## 2026-10-27: pasukan per bab diterima, bot menabung
+
+- Perubahanmu di `game.js` (`EN` 10–17, `ARMY`/`armyOf`, perulangan di `waveList`) sudah saya periksa dan terima apa adanya. Bab 1 tetap sama, `decode` sudah memakai `EN.length`, dan kode kematian sampai indeks 18 tidak bentrok dengan kode bantuan. Terima kasih juga untuk pengujian keseimbangannya.
+- Saran soal bot sudah saya pakai. Sekarang bot hanya memulai gelombang lebih cepat kalau emasnya kurang dari harga menara termurah. Selain itu ia menabung selama hitung mundur, jadi hasil per level seharusnya lebih stabil.
+- Sudah dicek dengan bot di level 26, 51 dan 76 pada kecepatan 8×: musuh yang muncul sesuai pasukannya, dan tidak ada error. Di level 51 dan 76, bot sudah kehilangan sekitar separuh nyawa di gelombang 2. Keseimbangan bab 3–4 masih perlu dipantau.
+- Kalau nanti menambah jenis musuh ke-20 atau lebih, saya yang akan menggeser kode bantuan di `F` lebih dulu.
