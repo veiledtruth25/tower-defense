@@ -19,6 +19,7 @@ const MAX_PRES = 4096;         // satu objek presence (karakter JSON)
 const MAX_DATA = 4096;         // data satu event (karakter JSON)
 const MAX_ROOMS_PER_CLIENT = 8;
 const MAX_CONN_PER_IP = 20;
+const GRACE_MS = 6000;         // koneksi putus: tetap dianggap ada selama ini, supaya putus-sambung sebentar tidak memicu pergantian host
 const TOPIC_RE = /^[a-z][a-z0-9_.-]{0,47}$/;
 const ROOM_RE = /^[a-z0-9][a-z0-9_.-]{0,47}$/;
 const roomCap = (name) => (name === 'lobby' ? 500 : 16);
@@ -125,12 +126,19 @@ function broadcast(name, exceptPeer, obj) {
   if (!room) return;
   for (const [peer, m] of room) if (peer !== exceptPeer) send(m.conn, obj);
 }
-function leaveRoom(conn, name) {
-  const room = rooms.get(name), peer = conn.sess && conn.sess.peer;
-  conn.rooms.delete(name);
-  if (!room || !room.has(peer) || room.get(peer).conn !== conn) return;
+// keluar dari room dan kabari yang lain
+function dropMember(name, peer) {
+  const room = rooms.get(name);
+  if (!room || !room.has(peer)) return;
+  clearTimeout(room.get(peer).timer);
   room.delete(peer);
   if (!room.size) rooms.delete(name); else broadcast(name, peer, { t: 'left', room: name, peer });
+}
+// keluar atas kemauan sendiri (pesan "leave"): langsung
+function leaveRoom(conn, name) {
+  const room = rooms.get(name), peer = conn.sess && conn.sess.peer, mem = room && room.get(peer);
+  conn.rooms.delete(name);
+  if (mem && mem.conn === conn) dropMember(name, peer);
 }
 
 function onMessage(conn, raw) {
@@ -147,9 +155,15 @@ function onMessage(conn, raw) {
 
   if (m.t === 'hello') {
     if (conn.sess) return;
+    const tab = typeof m.tab === 'string' ? m.tab.slice(0, 32) : '';
     let s = typeof m.token === 'string' ? sessions.get(m.token) : null;
-    if (!s || s.conn) s = { peer: 'p' + rid(6), token: rid(18), conn: null, lastSeen: now };
-    s.conn = conn; s.lastSeen = now; conn.sess = s; sessions.set(s.token, s);
+    if (s && s.conn && s.conn !== conn) {
+      // Halaman yang sama menyambung lagi sebelum server sadar koneksi lamanya mati: ambil alih identitasnya.
+      // Tab hasil "duplikat" membawa token yang sama tapi id tab berbeda, jadi ia mendapat identitas baru.
+      if (tab && s.tab === tab) s.conn.ws.terminate(); else s = null;
+    }
+    if (!s) s = { peer: 'p' + rid(6), token: rid(18), conn: null, lastSeen: now, tab };
+    s.tab = tab; s.conn = conn; s.lastSeen = now; conn.sess = s; sessions.set(s.token, s);
     send(conn, { t: 'welcome', peer: s.peer, token: s.token });
     return;
   }
@@ -170,7 +184,10 @@ function onMessage(conn, raw) {
       if (!room) { room = new Map(); rooms.set(name, room); }
       room.set(peer, { conn, presence: pres });
       conn.rooms.add(name);
-    } else { room.get(peer).conn = conn; room.get(peer).presence = pres; conn.rooms.add(name); }
+    } else {   // menyambung lagi dalam masa tunggu: batalkan keluarnya, yang lain tidak melihat apa-apa
+      const mem = room.get(peer);
+      clearTimeout(mem.timer); mem.timer = null; mem.conn = conn; mem.presence = pres; conn.rooms.add(name);
+    }
     const peers = [];
     for (const [p, mem] of room) if (p !== peer) peers.push({ peer: p, presence: mem.presence });
     send(conn, { t: 'joined', room: name, peers });
@@ -195,7 +212,12 @@ function onMessage(conn, raw) {
 }
 
 function onClose(conn) {
-  for (const name of [...conn.rooms]) leaveRoom(conn, name);
+  const peer = conn.sess && conn.sess.peer;
+  for (const name of [...conn.rooms]) {
+    const room = rooms.get(name), mem = room && room.get(peer);
+    if (mem && mem.conn === conn) { mem.conn = null; mem.timer = setTimeout(() => dropMember(name, peer), GRACE_MS); }
+  }
+  conn.rooms.clear();
   if (conn.sess && conn.sess.conn === conn) { conn.sess.conn = null; conn.sess.lastSeen = Date.now(); }
   const n = (perIp.get(conn.ip) || 1) - 1;
   if (n <= 0) perIp.delete(conn.ip); else perIp.set(conn.ip, n);

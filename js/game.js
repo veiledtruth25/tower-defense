@@ -503,7 +503,12 @@ async function enterRoom(code,host){
 }
 function tryHost(){if(wantHost&&myPeer&&!S){S=newState(true,myPeer,selLevel);isHost=true;wantHost=false;syncPlayers()}}
 function onGamePeers(ch){
-  const me=ch.peers.find(p=>p.sameTab);if(me)myPeer=me.peer;
+  const me=ch.peers.find(p=>p.sameTab);
+  if(me){
+    // our identity changed (the server forgot us, e.g. after a restart): a host keeps the game by renaming itself in it
+    if(myPeer&&me.peer!==myPeer&&isHost&&S){const old=myPeer;S.h=me.peer;S.P.forEach(p=>{if(p.p===old)p.p=me.peer})}
+    myPeer=me.peer;
+  }
   tryHost();
   if(isHost)syncPlayers();else checkHostAlive();
 }
@@ -554,7 +559,7 @@ function checkHostAlive(){
 }
 function onState(msg){
   if(msg.sameTab||!msg.data||msg.data.h!==msg.peer)return;
-  if(isHost){if(myPeer&&msg.peer<myPeer){isHost=false}else return}
+  if(isHost){if(myPeer&&msg.peer<myPeer){isHost=false;lobbyPresence()}else return}   // two hosts: the lower id keeps the game
   const ns=decode(msg.data);if(!ns)return;
   clearTimeout(joinTimer);wantHost=false;
   for(const f of ns.F){const ti=int(f[0],-30,119),x=num(f[1],0)/10,y=num(f[2],0)/10;
@@ -835,12 +840,13 @@ function frame(now){
   const dt=Math.min(.1,(now-last)/1000);last=now;
   if(S){
     if(isHost){acc+=dt;const step=1/30;while(acc>=step){for(let k=0;k<S.sp;k++)sim(step);acc-=step}
-      if(gr&&now-lastBc>125){lastBc=now;broadcast()}
-      if(gr&&now-lastLobbyPres>2500){lastLobbyPres=now;lobbyPresence()}}
+      if(gr&&now-lastBc>125){lastBc=now;broadcast()}}
     else{const k=dt*S.sp;
       if(S.ph==="wave")for(const e of S.E){e.d+=espd(e)*k;e.sl=Math.max(0,e.sl-k)}
       if(S.ph==="build")S.cd=Math.max(0,S.cd-k)}
   }
+  // the open-rooms list: hosts advertise their room, everyone else clears the old ad (a host that stepped down must not stay listed)
+  if(gr&&now-lastLobbyPres>2500){lastLobbyPres=now;lobbyPresence()}
   const inGame=!$("#scrGame").hidden;
   if(inGame){observe();botTick(dt)}
   BB.view.frame(dt);

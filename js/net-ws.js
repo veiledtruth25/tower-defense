@@ -41,6 +41,7 @@ const userApi = {
 };
 
 // ---------- koneksi ----------
+const TAB = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 8);   // hanya di memori: tab hasil duplikat punya id lain
 let ws = null, open = false, peerId = null, token = null, backoff = 500, pingT = 0, lastPong = 0, retryT = 0, started = false;
 try { token = sessionStorage.getItem("bb-tok"); } catch (e) { /* kosong */ }
 const rooms = new Map(); // nama -> record room
@@ -53,7 +54,7 @@ function connect() {
   if (ws) return;
   let mine;
   try { mine = ws = new WebSocket(wsUrl()); } catch (e) { schedule(); return; }
-  mine.onopen = () => sendRaw({ t: "hello", token });
+  mine.onopen = () => sendRaw({ t: "hello", token, tab: TAB });
   mine.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } onMsg(m); };
   mine.onclose = () => {
     if (ws !== mine) return;

@@ -50,22 +50,25 @@ async function buildAt(p, type, minX) {
   });
   const host = await player(browser, "Tuan Rumah"), guest = await player(browser, "Tamu Satu");
   await host.click("#btnHost");
-  await host.waitForFunction("document.querySelector('#hRoom').textContent.length>0", { timeout: 15000 });
+  await host.waitForFunction("document.querySelector('#hRoom').textContent.length>0", { timeout: 120000 });
   const code = await host.$eval("#hRoom", (e) => e.textContent);
-  await sleep(1200);
+  await sleep(4000);   // beri waktu daftar room terbuka sampai ke tamu
   const listed = await guest.evaluate(() => [...document.querySelectorAll("#openList li")].map((l) => l.textContent.trim()));
   if (NOPRES) await guest.evaluate(async () => {   // tamu tidak pernah mengirim presence di room permainan
     const r = await window.claude.use("room"), join = r.join;
     r.join = async (n) => { const g = await join(n); g.presence = () => Promise.resolve(); return g; };
   });
   await guest.type("#codeIn", code); await guest.click("#btnJoin");
-  await sleep(4000);
+  // Chrome tanpa GPU lambat: tunggu sampai kedua pemain terdaftar, bukan hitungan detik tetap
+  const two = "BB.game.S&&BB.game.S.P.filter(p=>!p.off).length>=2&&BB.game.mySlot()>=0";
+  await host.waitForFunction(two, { timeout: 120000 }).catch(() => {});
+  await guest.waitForFunction(two, { timeout: 120000 }).catch(() => {});
   const lobby = { host: await look(host), guest: await look(guest) };
   await host.screenshot({ path: OUT + "/mp-lobby-host.png" });
   await host.click("#bGo").catch(() => {});
-  await sleep(1500);
+  await host.waitForFunction("BB.game.S.ph!=='lobby'", { timeout: 60000 }).catch(() => {});
+  await guest.waitForFunction("BB.game.S.ph!=='lobby'", { timeout: 60000 }).catch(() => {});
   if (NOPRES) {
-    await sleep(3000);
     const res = { host: await look(host), guest: await look(guest) };
     console.log(JSON.stringify({ mode: "nopresence", code, lobby, afterStart: res }, null, 1));
     console.log("errors", JSON.stringify(errors));
