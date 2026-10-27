@@ -92,3 +92,54 @@ Bab 1 sama persis dengan susunanmu sekarang, dan jadwal bos tetap seperti punyam
      const t=A[r];list.push([t,(r===1?.45:EN[t].spd<1?1.1:.7)*g])}
    ```
 3. Format jaringan tidak perlu diubah, karena indeks `EN` baru ditambahkan di belakang.
+
+## 2026-10-27 (lanjutan): pasukan per bab sudah jalan di `game.js`
+
+Pemilik proyek menggabungkan usulan di atas ke main, lalu meminta saya langsung mengerjakannya. Jadi kali ini saya yang mengubah `game.js`, dan hanya di tiga tempat:
+- `EN` indeks 10–17 (Goblin sampai Golem Lava), ditambahkan di belakang.
+- `ARMY` dan `armyOf` (baru), tepat di atas `waveList`.
+- Perulangan di `waveList`: jenis tiap peran sekarang diambil dari pasukan bab level itu. Pola perannya sama persis dengan punyamu, jadi bab 1 tidak berubah sama sekali.
+
+File itu tetap milikmu, jadi silakan setel ulang angkanya. Kalau susunan gelombang berubah, menu, "Kenali musuh" dan kartu "Musuh baru" ikut menyesuaikan sendiri. `node tests/smoke.js` lolos.
+
+**Susunan akhir** (angka = HP dasar; kecepatan, hadiah, `leak` dan `res` sama seperti usulan)
+
+| Bab | Level | Dasar | Cepat | Tebal | Selingan A (lv 8+) | Selingan B (lv 15+) |
+|---|---|---|---|---|---|---|
+| 1 | 1–25 | Lendir | Kilat | Kura | Hantu | Perisai |
+| 2 | 26–50 | Goblin 45 | Serigala 28 | Kura | Hantu | Perisai |
+| 3 | 51–75 | Tengkorak 48 | Kelelawar 26 | Mumi 190 | Hantu | Perisai |
+| 4 | 76–100 | Iblis 52 | Anjing Api 32 | Golem Lava 200 | Tengkorak | Perisai |
+
+**Bedanya dengan usulan, dan alasannya**
+
+Usulan pertama hanya menjaga total HP. Waktu diuji dengan bot ujimu, ternyata itu tidak cukup.
+- **Cara uji.** Bot memainkan level 26–100 dua kali: sekali dengan susunan lama (bab 1 diteruskan), sekali dengan pasukan baru. Ujinya di salinan sementara dengan jam dipercepat dan tanpa tampilan 3D, dan bot baru jalan setelah benar-benar menyala. Hasil tiap level deterministik.
+- **Versi awal tidak seimbang.** Di versi awal, Perisai naik ke selingan A di bab 2 dan tidak ada di bab 3–4. Dibanding susunan lama, bot menang 16 vs 23 level di bab 2, 21 vs 14 di bab 3, dan 24 vs 14 di bab 4.
+- **Penyebabnya Perisai.** Panah memantul darinya, dan dua menara pertama yang dibangun bot selalu Panah. Begitu Perisai lebih sering muncul, bab itu jadi berat. Begitu Perisai hilang, bab itu jadi ringan, walaupun total HP-nya naik.
+- **Perbaikannya.** Perisai saya pertahankan sebagai selingan B di semua bab. Selingan A bab 4 diganti Tengkorak, dan HP Tengkorak dan Mumi diturunkan sampai hasil bot setara.
+
+Hasil akhir bot (skor rata-rata: menang = 20 + sisa nyawa, kalah = bagian level yang sempat dilalui × 20):
+
+| Bab | Susunan lama | Pasukan baru |
+|---|---|---|
+| 2 | menang 23 dari 25, skor 31,1 | menang 22 dari 25, skor 30,8 |
+| 3 | menang 14 dari 25, skor 17,8 | menang 14 dari 25, skor 17,9 |
+| 4 | menang 14 dari 25, skor 16,3 | menang 16 dari 25, skor 18,4 |
+
+Hasil per level juga hampir sama: bot kalah di level yang sama, dan tidak ada lonjakan di level 26, 51 atau 76.
+
+Sebagai pembanding, ini perubahan total HP musuh non-bos per bab 2/3/4 (tiap gelombang diberi bobot pengali HP-nya):
+- HP mentah: +2%, +9%, +13%.
+- HP efektif dengan bobot kerusakan Panah 30%, Meriam 35%, Es 5%, Jitu 30%: +2%, +11%, +27%.
+
+Angka HP efektif bab 4 tinggi karena Golem Lava tahan Panah. Bot tetap menang sedikit lebih sering, kemungkinan karena Golem lambat dan karena Hantu, yang tahan Meriam, tidak ada di bab 4. Kalau menurutmu bab 4 terlalu berat untuk pemain yang mengandalkan Panah, HP Golem Lava bisa diturunkan.
+
+**Catatan tentang bot uji.** Di level tinggi bot sering kalah di gelombang 2 dengan 3–4 menara, karena ia langsung memulai gelombang begitu emasnya tidak cukup untuk pilihan terbaiknya. Akibatnya hasil satu level bisa berbalik karena selisih HP 2%, jadi yang saya bandingkan jumlah per bab. Kalau bot mau dipakai untuk menilai keseimbangan, mungkin hasilnya lebih stabil kalau ia menunggu hitung mundur selesai. Ini hanya saran.
+
+**Batas format jaringan.** Kode kematian `-1-t` dan kode bantuan `-20-k` dibaca lewat `int(f[0],-30,119)` di `onState`. Indeks `EN` sampai 18 masih aman. Jenis ke-20 (indeks 19) akan bentrok dengan bantuan pertama, jadi geser dulu kode bantuannya sebelum menambah musuh lagi.
+
+**Perbaikan tampilan sekalian**
+- Kartu "Musuh baru" yang belum sempat tampil dulu terbawa ke permainan berikutnya (misalnya kartu Kura muncul di level 76). Sekarang antrean dikosongkan saat level berganti atau keluar ke menu. Jenis musuh baru juga baru dianggap dikenal setelah kartunya benar-benar tampil.
+- Di peta malam, satu bintang bisa tampil sebagai kotak putih besar saat kamera menukik di awal permainan. Bintang sekarang berukuran tetap di layar.
+- `A.EXTRA` (model tanpa tipe `EN`, khusus galeri) sekarang kosong, karena kedelapan model sudah punya tipe.

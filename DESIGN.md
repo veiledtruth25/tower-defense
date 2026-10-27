@@ -73,20 +73,29 @@ Menara baru jatuh dari atas lalu memantul. Saat ditingkatkan, menara membesar se
 
 Raja Lendir, Kalajengking, Yeti dan Naga Api punya aura sewarna tubuhnya di tanah.
 
-### Pasukan bab berikutnya
+### Pasukan tiap bab
 
-Delapan karakter berikut disiapkan supaya musuh berganti seiring level naik. Selama belum ada di data logika, semuanya tampil di **galeri** (`#galeri` atau tombol "Galeri 3D" di menu). Usulan pembagiannya per 25 level ada di `docs/catatan-desain.md`.
+Makin lama bermain, musuhnya makin berganti. Tiap 25 level punya pasukan sendiri. Bos tetap mengikuti petanya, dan Perisai, goblin berzirah yang tahan Panah, ikut sebagai pengawal elite di semua bab mulai level 15.
+
+| Bab | Level | Pasukan | Dasar | Cepat | Tebal | Selingan A (level 8+) | Selingan B (level 15+) |
+|---|---|---|---|---|---|---|---|
+| 1 | 1–25 | Makhluk Lembah | Lendir | Kilat | Kura | Hantu | Perisai |
+| 2 | 26–50 | Pasukan Goblin | Goblin | Serigala | Kura | Hantu | Perisai |
+| 3 | 51–75 | Pasukan Arwah | Tengkorak | Kelelawar | Mumi | Hantu | Perisai |
+| 4 | 76–100 | Pasukan Api | Iblis | Anjing Api | Golem Lava | Tengkorak | Perisai |
+
+Kesulitannya dijaga setara dengan susunan bab 1 lewat bot uji pemilik. Rinciannya ada di `docs/catatan-desain.md`. Semua model juga bisa dilihat dari dekat di **galeri** (`#galeri` atau tombol "Galeri 3D" di menu).
 
 | Musuh | Peran | Model | Gerak |
 |---|---|---|---|
 | Goblin | Dasar | Goblin hijau berkepala besar, telinga panjang, rompi kulit, pentungan berduri | Berjalan terhuyung cepat, pentungan berayun |
 | Serigala | Cepat | Serigala abu-abu berperut terang, mata kuning, ekor lebat | Berlari melompat-lompat (gallop), kepala menoleh, ekor berkibas |
-| Tengkorak | Dasar | Kerangka berhelm penyok, rongga mata bercahaya merah, pedang berkarat | Berbaris kaku, rahang berkeletuk, pedang terhunus ke depan |
-| Kelelawar | Cepat, terbang | Kelelawar ungu berbulu, telinga besar, mata merah, sayap selaput | Terbang zig-zag di atas jalan dengan kepakan cepat. Bayangannya menunjukkan tinggi terbangnya. |
-| Mumi | Tebal | Tubuh terbalut perban berlapis, mata hijau menyala di balik celah | Menyeret kaki dengan lengan terulur ke depan, sobekan perban berkibar, debu mengepul |
-| Iblis | Dasar | Setan kecil merah bertanduk, sayap kecil, ekor runcing, garpu trisula | Melompat-lompat, sayap mengepak, bara keluar dari tanduknya |
+| Tengkorak | Dasar di bab 3, selingan di bab 4. Peluru Jitu hanya 50% kena | Kerangka berhelm penyok, rongga mata bercahaya merah, pedang berkarat | Berbaris kaku, rahang berkeletuk, pedang terhunus ke depan |
+| Kelelawar | Cepat, terbang. Ledakan Meriam hanya 40% kena | Kelelawar ungu berbulu, telinga besar, mata merah, sayap selaput | Terbang zig-zag di atas jalan dengan kepakan cepat. Bayangannya menunjukkan tinggi terbangnya. |
+| Mumi | Tebal, lambat | Tubuh terbalut perban berlapis, mata hijau menyala di balik celah | Menyeret kaki dengan lengan terulur ke depan, sobekan perban berkibar, debu mengepul |
+| Iblis | Dasar. Serangan Es hanya 50% kena | Setan kecil merah bertanduk, sayap kecil, ekor runcing, garpu trisula | Melompat-lompat, sayap mengepak, bara keluar dari tanduknya |
 | Anjing Api | Cepat | Anjing hitam bermata jingga dengan surai api di punggung | Berlari seperti serigala, meninggalkan asap dan bara |
-| Golem Lava | Tebal | Bongkahan batu gelap dengan retakan magma, kepalan raksasa | Melangkah berat, lengan berayun, magma berdenyut dan menetes |
+| Golem Lava | Tebal, lambat. Panah hanya 30% kena | Bongkahan batu gelap dengan retakan magma, kepalan raksasa | Melangkah berat, lengan berayun, magma berdenyut dan menetes |
 
 Kematiannya juga khas:
 - Pentungan goblin terlempar, dan tulang tengkorak berhamburan dengan tengkoraknya melambung.
@@ -99,7 +108,7 @@ Kematiannya juga khas:
 
 - **Menu**: di bawah info level ada deretan potret "Musuh di level N". Musuh yang pertama kali muncul di level itu bertanda "Baru". Pertempuran mini di atas menu juga memakai musuh dan bos level yang sedang dipilih.
 - **Kenali musuh**: kartu diurutkan dari level pertama musuh itu muncul, dengan label "Sejak level 1" atau "Mulai level N".
-- **Saat bermain**: musuh yang baru pertama kali kamu temui diperkenalkan dengan kartu di kiri atas, berisi potret, nama dan kemampuannya, dan disertai bunyi pendek. Catatan musuh yang sudah pernah dilihat disimpan di browser.
+- **Saat bermain**: musuh yang baru pertama kali kamu temui diperkenalkan dengan kartu di kiri atas, berisi potret, nama dan kemampuannya, dan disertai bunyi pendek. Kalau beberapa musuh baru datang sekaligus, kartunya tampil bergantian. Kartu yang belum sempat tampil tidak terbawa ke level berikutnya, dan musuh baru dianggap sudah dikenal setelah kartunya tampil. Catatannya disimpan di browser.
 - Semua ini dihitung dari susunan gelombang di logika, jadi otomatis mengikuti kalau susunannya berubah.
 
 Mengetuk kartu di "Kenali musuh" membuka galeri dan menampilkan monster itu sendirian dari dekat. Di galeri, menara berdiri dua petak dari jalan supaya tidak menutupi monster.

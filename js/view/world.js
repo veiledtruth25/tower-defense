@@ -366,11 +366,15 @@ function skyTex(tier){
 let stars=null,clouds=[];
 function buildSky(group,disp,tier){
   const n=tier.night>.5?700:0;
-  if(n){const pos=[],col=[];for(let i=0;i<n;i++){const u=H(i,1)*2-1,a=H(i,2)*Math.PI*2,r=60+H(i,3)*25,s=Math.sqrt(1-u*u);pos.push(Math.cos(a)*s*r,u*r*.7-8,Math.sin(a)*s*r);
-      const w=.6+H(i,4)*.4;col.push(w,w,w*(tier.n==="Gerhana"?.7:1.05))}
-    const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("color",new THREE.Float32BufferAttribute(col,3));
-    const m=new THREE.PointsMaterial({size:.35,vertexColors:true,transparent:true,opacity:.9,sizeAttenuation:true,fog:false,depthWrite:false});
-    stars=new THREE.Points(g,m);group.add(stars);disp.push(g,m)}
+  // stars keep a fixed size on screen: the camera's swoop into a game passes through the star shell, and a
+  // distance-scaled point next to the lens filled the view as a big square. One in seven is a bigger star.
+  if(n){stars=new THREE.Group();group.add(stars);
+    for(const big of[0,1]){const pos=[],col=[];
+      for(let i=0;i<n;i++){if((i%7===0)!==!!big)continue;const u=H(i,1)*2-1,a=H(i,2)*Math.PI*2,r=60+H(i,3)*25,s=Math.sqrt(1-u*u);pos.push(Math.cos(a)*s*r,u*r*.7-8,Math.sin(a)*s*r);
+        const w=.6+H(i,4)*.4;col.push(w,w,w*(tier.n==="Gerhana"?.7:1.05))}
+      const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));g.setAttribute("color",new THREE.Float32BufferAttribute(col,3));
+      const m=new THREE.PointsMaterial({size:big?2.3:1.4,vertexColors:true,transparent:true,opacity:.9,sizeAttenuation:false,fog:false,depthWrite:false});
+      stars.add(new THREE.Points(g,m));disp.push(g,m)}}
   clouds=[];const cc=V.srgb(tier.cloud);
   for(let i=0;i<16;i++){const a=i/16*Math.PI*2+H(i,5),r=19+H(i,6)*14;clouds.push({x:Math.cos(a)*r,y:-5-H(i,7)*6,z:Math.sin(a)*r*.75-4,s:5+H(i,8)*6,sp:.15+H(i,9)*.25,c:cc,a:tier.night>.5?.35:.55})}
 }

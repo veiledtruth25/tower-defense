@@ -292,16 +292,21 @@ function lineupTick(){
     el.append(d)}
 }
 // in a game: a card introduces each enemy type the first time this player meets it
-let seenFoes=new Set(),foeQ=[],foeT=0;
+let seenFoes=new Set(),foeQ=[],foeIn=new Set(),foeT=0,foeL=0;
 try{seenFoes=new Set(JSON.parse(localStorage.getItem("bb-seen")||"[]"))}catch(e){}
 function foeTick(dt,S){
-  if(mode!=="game"||!S||!ovEl)return;
-  for(const e of S.E){const m=V.A.modelOf(e.t);if(seenFoes.has(m))continue;seenFoes.add(m);foeQ.push(e.t);
-    try{localStorage.setItem("bb-seen",JSON.stringify([...seenFoes]))}catch(x){}}
-  const card=ovEl.querySelector(".ov-foe");
+  if(!ovEl)return;
+  const card=ovEl.querySelector(".ov-foe"),L=mode==="game"&&S?S.L:0;
+  // leaving, a new game or the next level drops the cards still waiting; they come back with their enemies
+  if(L!==foeL){foeL=L;foeQ.length=0;foeIn.clear();foeT=0;card.classList.remove("on")}
+  if(!L)return;
+  for(const e of S.E){const m=V.A.modelOf(e.t);if(!seenFoes.has(m)&&!foeIn.has(m)){foeIn.add(m);foeQ.push(e.t)}}
   if(foeT>0){foeT-=dt;if(foeT<=0)card.classList.remove("on");return}
   if(!foeQ.length)return;
-  const t=foeQ.shift(),e=V.A.enOf(t)||{};enemyIcon(card.querySelector("canvas"),t);
+  // a type counts as met once its card has been shown
+  const t=foeQ.shift(),e=V.A.enOf(t)||{};seenFoes.add(V.A.modelOf(t));
+  try{localStorage.setItem("bb-seen",JSON.stringify([...seenFoes]))}catch(x){}
+  enemyIcon(card.querySelector("canvas"),t);
   card.querySelector("b").textContent=e.n||"";card.querySelector("span").textContent=e.ds||BEAST_DS[V.A.modelOf(t)]||"";
   card.classList.toggle("boss",V.A.isBoss(t));restart(card,"on");foeT=4.2;BB.emit("v:newfoe",{t});
 }

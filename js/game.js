@@ -26,7 +26,16 @@ const EN=[
   {n:"Raja Lendir",hp:900,spd:.6,rw:80,r:.45,col:"#8fd16a",leak:5,model:"rajalendir",boss:true,ds:"Bos: tiap 6 detik memuntahkan 3 lendir kecil"},
   {n:"Kalajengking",hp:1200,spd:.75,rw:100,r:.45,col:"#c97b35",leak:5,model:"kalajengking",boss:true,ds:"Bos: menyelam ke pasir 2,5 detik dan kebal tembakan menara"},
   {n:"Yeti",hp:1500,spd:.5,rw:110,r:.45,col:"#eef3f8",leak:5,model:"yeti",boss:true,ds:"Bos: tiap 8 detik menghentak, menara di dekatnya beku 3 detik"},
-  {n:"Naga Api",hp:2000,spd:.62,rw:140,r:.45,col:"#d84a30",leak:6,model:"naga",boss:true,ds:"Bos: semburan api melumpuhkan menara 3 detik, mengamuk di bawah 50% HP"}
+  {n:"Naga Api",hp:2000,spd:.62,rw:140,r:.45,col:"#d84a30",leak:6,model:"naga",boss:true,ds:"Bos: semburan api melumpuhkan menara 3 detik, mengamuk di bawah 50% HP"},
+  // the armies of the later chapters (see ARMY below)
+  {n:"Goblin",hp:45,spd:1.35,rw:5,r:.26,col:"#6f9a4a",leak:1,model:"goblin",ds:"Goblin berpentungan, datang bergerombol"},
+  {n:"Serigala",hp:28,spd:2.5,rw:5,r:.27,col:"#7d8794",leak:1,model:"serigala",ds:"Berlari sangat cepat dalam kawanan"},
+  {n:"Tengkorak",hp:48,spd:1.25,rw:6,r:.26,col:"#e8e2cf",leak:1,model:"tengkorak",res:{3:.5},ds:"Prajurit tulang. Peluru Jitu menembus rongganya, hanya 50% kena"},
+  {n:"Kelelawar",hp:26,spd:2.8,rw:5,r:.23,col:"#4a3a5e",leak:1,model:"kelelawar",res:{1:.4},ds:"Terbang zig-zag. Ledakan Meriam hanya 40% kena"},
+  {n:"Mumi",hp:190,spd:.75,rw:14,r:.34,col:"#d9cfb0",leak:2,model:"mumi",ds:"Lambat dan sangat tahan pukulan"},
+  {n:"Iblis",hp:52,spd:1.5,rw:6,r:.25,col:"#c8382c",leak:1,model:"iblis",res:{2:.5},ds:"Setan kecil bergarpu. Serangan Es hanya 50% kena"},
+  {n:"Anjing Api",hp:32,spd:2.7,rw:6,r:.29,col:"#2e2628",leak:1,model:"anjingapi",ds:"Anjing neraka yang meninggalkan jejak bara"},
+  {n:"Golem Lava",hp:200,spd:.7,rw:16,r:.37,col:"#3a302c",leak:2,model:"golemlava",res:{0:.3},ds:"Batu dan magma. Panah hanya 30% kena"}
 ];
 function stat(t,l){const b=TW[t],k=l-1;return{dmg:b.dmg*Math.pow(1.65,k),range:b.range+.35*k,rate:b.rate*Math.pow(.88,k),splash:b.splash||0,slow:b.slow?Math.max(.25,b.slow-.08*k):0,slowDur:b.slowDur||0}}
 const upCost=(t,l)=>Math.round(TW[t].cost*.75*l);
@@ -78,13 +87,20 @@ const espd=e=>EN[e.t].spd*(e.sl>0?e.sf:1)*(e.ab==="enrage"?1.4:1);
 const resist=(e,tt)=>{const r=EN[e.t].res;return r&&r[tt]!=null?r[tt]:1};
 const ABK=["summon","stomp","breath"];
 
+// one army per 25 levels, so the enemies change the longer you play:
+// [basic, fast, tank, extra A (from level 8), extra B (from level 15)]. The bosses keep bossType's schedule.
+// Perisai stays the extra B of every army: the owner bot showed it sets most of the difficulty, and with it
+// the bot wins about as many levels of each chapter as it did with the chapter 1 mix.
+const ARMY=[[0,1,2,4,5],[10,11,2,4,5],[12,13,14,4,5],[15,16,17,12,5]];
+const armyOf=L=>ARMY[Math.min(3,Math.floor((L-1)/25))];
 const WC={};
 function waveList(n,L){
   const key=L+":"+n;if(WC[key])return WC[key];
   const e=n+Math.floor((L-1)/3),list=[],cnt=Math.min(60,6+Math.floor(n*1.8)+Math.floor(L/6)),g=Math.max(.3,1-e*.02);
-  for(let i=0;i<cnt;i++){let t=0;if(e>=3&&i%3===1)t=1;if(e>=5&&i%5===4)t=2;if(e>=12&&i%4===2)t=2;
-    if(L>=8&&i%6===3)t=4;if(L>=15&&i%7===5)t=5;
-    list.push([t,(t===1?.45:t===2||t===5?1.1:.7)*g])}
+  const A=armyOf(L);
+  for(let i=0;i<cnt;i++){let r=0;if(e>=3&&i%3===1)r=1;if(e>=5&&i%5===4)r=2;if(e>=12&&i%4===2)r=2;
+    if(L>=8&&i%6===3)r=3;if(L>=15&&i%7===5)r=4;
+    const t=A[r];list.push([t,(r===1?.45:EN[t].spd<1?1.1:.7)*g])}
   if(n%5===0||n>=levelWaves(L)){const bc=bossCount(n,L);for(let b=0;b<bc;b++)list.push([bossType(n,L,b,bc),2.5])}
   return WC[key]=list;
 }
