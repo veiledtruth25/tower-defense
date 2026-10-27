@@ -8,6 +8,10 @@ if(!THREE)return;
 const A=V.A={},gm=()=>BB.game,H=V.hash;
 let t=0,fdt=1/60,towers=new Map(),enemies=new Map(),corpses=[],sold=[],projs=[],bits=[],fxs=[],later=[];
 const wx=tx=>tx-V.HX,wz=ty=>ty-V.HZ;
+// a map can have several roads (geo.routes); a monster walks road e.r (0 when absent) and comes out of its portal
+const routeOf=r=>{const g=V.geo;return(g&&g.routes&&g.routes[r||0])||g};
+const portalOf=r=>{const R=routeOf(r);return(V.portals&&V.portals[(R&&R.portal)||0])||V.portal};
+const posOn=(d,r)=>gm().posIn(V.geo,d,r||0);
 const _R=new THREE.Matrix4(),_T=new THREE.Matrix4(),_B=new THREE.Matrix4(),_v=new THREE.Vector3(),_s=new THREE.Vector3(),_q=new THREE.Quaternion();
 const _P=new THREE.Matrix4(),_Q=new THREE.Matrix4(),_L2=new THREE.Matrix4(),_w=new THREE.Vector3();
 const say=(n,d)=>{if(!A.demo)BB.emit(n,d)};
@@ -98,8 +102,8 @@ A.onDeath=d=>{
 };
 A.onHelp=d=>{
   const k=d.k|0,S=d.S||gm().S;if(!S)return;
-  const g=V.geo,ex=[];for(const e of S.E.slice(0,24)){const ev=enemies.get(e.id);ex.push(ev?[ev.tx,ev.ty]:gm().posIn(g,e.d))}
-  if(k===0){const tg=ex.length?ex:Array.from({length:7},()=>gm().posIn(g,Math.random()*g.PLEN));
+  const g=V.geo,ex=[];for(const e of S.E.slice(0,24)){const ev=enemies.get(e.id);ex.push(ev?[ev.tx,ev.ty]:posOn(e.d,e.r))}
+  if(k===0){const nr=(g.routes||[g]).length,tg=ex.length?ex:Array.from({length:7},()=>{const r=Math.floor(Math.random()*nr);return posOn(Math.random()*routeOf(r).PLEN,r)});
     tg.forEach(([tx,ty],i)=>later.push({at:t+i*.07,fn:()=>{const x=wx(tx),z=wz(ty);projs.push({k:9,f:[x+3.2,7.5,z-2.4],to:[x,.05,z],age:0,dur:.55,h:0,tx,ty,spin:V.rnd(4,9)})}}));
     V.ov&&V.ov.tint("rgba(255,120,60,.18)",.9)}
   else if(k===1){V.ov&&V.ov.tint("rgba(150,215,255,.32)",1.8);
@@ -132,7 +136,7 @@ A.onAbility=d=>{
       fx("ring",cx,rec.h+.08,cz,.5,.2,1.2,[.8,.95,1],.9);puff(V.PN,8,cx,rec.h+.5,cz,1,.8,.7,.1,.05,[.9,.97,1],.9,1,1.5)}
     say("v:ability",{k,x:X})}});
   else if(k==="breath"){let TX=d.tx,TY=d.ty;
-    if(TX==null){const p=ev&&V.geo?gm().posIn(V.geo,ev.vd+2.2):[d.x+1,d.y];TX=p[0];TY=p[1];if(ev){ev.abX=wx(TX);ev.abZ=wz(TY)}}
+    if(TX==null){const p=ev&&V.geo?posOn(ev.vd+2.2,ev.r):[d.x+1,d.y];TX=p[0];TY=p[1];if(ev){ev.abX=wx(TX);ev.abZ=wz(TY)}}
     later.push({at:t+.62,fn:()=>{const X=wx(TX),Z=wz(TY),h=V.groundAt(TX,TY);
       fx("decal",X,.076,Z,4.5,r*1.7,r*1.7,[.1,.07,.06],.6);fx("glow",X,h+.4,Z,.5,.6,2.4,[1,.6,.25],.8);flash(X,h+.8,Z,[1,.55,.25],2.8,.7);
       for(const rec of towers.values())if(Math.hypot(rec.x+.5-TX,rec.y+.5-TY)<=r+.5)rec.fk="burn"}});
@@ -465,7 +469,7 @@ DRAW.naga=(ev,x,y,z,yaw,ph,s,c)=>{
   const hot=1+rg*(.3+.2*Math.sin(t*9)),cr=c[0]*hot,cg=c[1]*(1+rg*.08),cb=c[2]*(1-rg*.15);
   const P=NG,cy=Math.cos(yaw),sy=Math.sin(yaw);P[0].x=x;P[0].y=y+(.42+Math.sin(p)*.07+rear*.25)*s;P[0].z=z;
   for(let i=1;i<=NG_N;i++){const q=P[i],wave=Math.sin(p*1.2-i*.7)*.16,hy=(.4+Math.sin(p-i*.6)*.08)*s*(1-i*.035);q.sc=1-i*.062;
-    if(path){const d=ev.vd-i*sp,dd=Math.max(0,d),a=gm().posIn(g,dd),b=gm().posIn(g,dd+.25),dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,off=(ev.off||0)+wave;
+    if(path){const d=ev.vd-i*sp,dd=Math.max(0,d),a=posOn(dd,ev.r),b=posOn(dd+.25,ev.r),dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,off=(ev.off||0)+wave;
       q.x=wx(a[0]-dy/L*off);q.z=wz(a[1]+dx/L*off);q.y=Math.max(0,V.groundAt(a[0],a[1]))+hy;if(d<0)q.sc*=V.clamp(1+d/.8,0,1)}
     else{const bx=-i*sp*.92,bz=wave*s;q.x=x+bx*cy+bz*sy;q.z=z-bx*sy+bz*cy;q.y=y+hy}}
   const fl=Math.sin(ph*.55+ev.id)*.6+.3;
@@ -505,16 +509,16 @@ function hpBar(x,y,z,f,w){
   const col=f>.5?[.5,.82,.45]:f>.25?[.94,.71,.27]:[.9,.38,.35];V.FX.bar.push(_B,col[0],col[1],col[2],1);
 }
 function syncEnemies(S,dt){
-  const g=V.geo,seen=new Set(),speed=S.sp||1;
+  const seen=new Set(),speed=S.sp||1;
   for(const e of S.E){
     if(e.d<0)continue;seen.add(e.id);let ev=enemies.get(e.id);
-    if(!ev){ev={id:e.id,t:e.t,vd:e.d,yaw:0,ph:H(e.id,3)*6,fl:0,hp:e.hp,spawn:A.fresh?1:0,off:(H(e.id,7)-.5)*.22,tx:0,ty:0,y:0,sl:0};enemies.set(e.id,ev);
-      const p=gm().posIn(g,e.d),p2=gm().posIn(g,e.d+.3);ev.yaw=Math.atan2(-(p2[1]-p[1]),p2[0]-p[0]);
-      if(!A.fresh&&V.portal&&e.d<.6){const P=V.portal;fx("glow",P.x,P.y,P.z,.4,.6,1.8,P.col,.8);puff(V.PA,10,P.x+.2,P.y,P.z,1,.6,.5,.1,.03,P.col,1,0,2);
-        if(A.isBoss(e.t)){V.shake(.5);fx("ring",P.x+.5,.08,P.z,1,.4,3,[1,.4,.35],1);say("v:spawn",{boss:true})}}
-      else if(!A.fresh&&e.d>=.6){const p=gm().posIn(g,e.d),X=wx(p[0]),Z=wz(p[1]);   // appeared mid-road (summoned)
+    if(!ev){ev={id:e.id,t:e.t,r:e.r||0,vd:e.d,yaw:0,ph:H(e.id,3)*6,fl:0,hp:e.hp,spawn:A.fresh?1:0,off:(H(e.id,7)-.5)*.22,tx:0,ty:0,y:0,sl:0};enemies.set(e.id,ev);
+      const p=posOn(e.d,ev.r),p2=posOn(e.d+.3,ev.r),P=portalOf(ev.r);ev.yaw=Math.atan2(-(p2[1]-p[1]),p2[0]-p[0]);
+      if(!A.fresh&&P&&e.d<.6){const dx=P.dir?P.dir[0]:1,dz=P.dir?P.dir[1]:0;fx("glow",P.x,P.y,P.z,.4,.6,1.8,P.col,.8);puff(V.PA,10,P.x+dx*.2,P.y,P.z+dz*.2,1,.6,.5,.1,.03,P.col,1,0,2);
+        if(A.isBoss(e.t)){V.shake(.5);fx("ring",P.x+dx*.5,.08,P.z+dz*.5,1,.4,3,[1,.4,.35],1);say("v:spawn",{boss:true})}}
+      else if(!A.fresh&&e.d>=.6){const p=posOn(e.d,ev.r),X=wx(p[0]),Z=wz(p[1]);   // appeared mid-road (summoned)
         puff(V.PN,8,X,.25,Z,1,1.2,.5,.1,.05,SC((A.enOf(e.t)||{}).col||"#ffffff"),.8,4,1.5);fx("ringN",X,.08,Z,.35,.15,.8,[1,1,1],.6)}}
-    ev.t=e.t;ev.sl=e.sl;
+    ev.t=e.t;ev.sl=e.sl;ev.r=e.r||0;
     const sp=spdOf(e)*speed;
     if(S.ph==="wave")ev.vd+=sp*dt;
     ev.vd=V.damp(ev.vd,e.d,5,dt);if(Math.abs(ev.vd-e.d)>1.2)ev.vd=e.d;
@@ -532,11 +536,11 @@ function syncEnemies(S,dt){
     if(A.modelOf(e.t)==="kilat"&&Math.random()<dt*20)V.PA.add(ev.x,ev.y+.32,ev.z,0,0,0,.3,.07,.02,1,.9,.5,.5,0,0);
   }
   for(const[id,ev]of enemies)if(!seen.has(id)){enemies.delete(id);
-    const leak=ev.vd>g.PLEN-.7,delay=leak?0:landsIn(ev.tx,ev.ty);
+    const leak=ev.vd>routeOf(ev.r).PLEN-.7,delay=leak?0:landsIn(ev.tx,ev.ty);
     corpses.push({ev,at:t+delay,leak,sp:spdOf({t:ev.t,sl:0,sf:1})*speed})}
 }
 function place(ev,dt){
-  const g=V.geo,p=gm().posIn(g,ev.vd),a=gm().posIn(g,ev.vd+.28),dx=a[0]-p[0],dy=a[1]-p[1],L=Math.hypot(dx,dy)||1;
+  const p=posOn(ev.vd,ev.r),a=posOn(ev.vd+.28,ev.r),dx=a[0]-p[0],dy=a[1]-p[1],L=Math.hypot(dx,dy)||1;
   ev.tx=p[0]-dy/L*ev.off;ev.ty=p[1]+dx/L*ev.off;
   ev.x=wx(ev.tx);ev.z=wz(ev.ty);ev.y=Math.max(0,V.groundAt(ev.tx,ev.ty));
   if(L>.01)ev.yaw=V.dampAng(ev.yaw,Math.atan2(-dy,dx),8,dt);
@@ -585,6 +589,17 @@ function beam(a,b,L,w,col,al){
   V.FX.beam.push(_bm,col[0],col[1],col[2],al);
 }
 
+// ---------- portals: the ones the wave uses glow; in the countdown the next wave's portals pulse ----------
+function portalTick(S){
+  const P=V.portals;if(!P||!P.length)return;
+  let on=null;
+  if(!A.demo&&S&&gm().wavePortals){const n=S.ph==="build"?S.w+1:S.ph==="wave"?S.w:0;if(n>0&&n<=(S.mw||n))on=gm().wavePortals(n,S.L)}
+  for(const p of P)p.goal=!on||on.includes(p.i)?1:0;
+  if(on&&S.ph==="build"&&P.length>1)for(const p of P){if(!p.goal)continue;
+    for(const o of[0,.5]){const k=(t*.8+o+p.i*.13)%1,x=p.x+p.dir[0]*.8,z=p.z+p.dir[1]*.8,r=.5+k*1.5;
+      V.M(x,V.TOP+.03,z,0,0,0,r,1,r,_B);V.FX.ring.push(_B,p.col[0],p.col[1],p.col[2],.8*(1-k)*(1-k))}}
+}
+
 // ---------- the fort reacts to how many lives are left ----------
 let lastPh=null,fortT=0;
 function fortTick(S,dt){
@@ -597,7 +612,7 @@ function fortTick(S,dt){
     _v.set(p[0],p[1]+.08,p[2]);_s.set(.9*f+night*.8,.9*f+night*.8,1);_B.compose(_v,V.cam.quaternion,_s);V.FX.glow.push(_B,1,.62,.3,.55+night*.35);
     if(night>.3){V.M(p[0]+.2,V.TOP+.02,p[2],0,0,0,2.4,1,2.4,_B);V.FX.decalA.push(_B,1,.55,.25,.22*night*f)}
     if(Math.random()<dt*7)V.PA.add(p[0]+V.rnd(-.03,.03),p[1]+.12,p[2]+V.rnd(-.03,.03),V.rnd(-.1,.1),V.rnd(.5,.9),V.rnd(-.1,.1),.5,.06,.02,1,.7,.3,1,-.1,.8,1)}
-  if(V.portal&&night>.3){const P=V.portal;V.M(P.x+.4,V.TOP+.02,P.z,0,0,0,3,1,3,_B);V.FX.decalA.push(_B,P.col[0],P.col[1],P.col[2],.28*night)}
+  if(night>.3)for(const P of V.portals||[]){V.M(P.x+P.dir[0]*.4,V.TOP+.02,P.z+P.dir[1]*.4,0,0,0,3,1,3,_B);V.FX.decalA.push(_B,P.col[0],P.col[1],P.col[2],.28*night*(.4+.6*P.on))}
   const down=S.ph==="over";fortT=V.damp(fortT,down?1:0,down?9:3,dt);
   c.port.position.y=c.portY-fortT*.72;
   if(S.ph!==lastPh&&lastPh!==null){
@@ -617,10 +632,10 @@ function fireworks(dt){
 // In the gallery (#galeri) it parades every model, the extras included, and the bosses use their abilities.
 let demo=null;
 function demoState(){
-  const g=V.geo,T=[];let i=0;const taken=new Set();
+  const g=V.geo,T=[],every=Math.max(4,Math.floor(g.PATH.size/9));let i=0;const taken=new Set();
   // in the gallery the towers stand two tiles back from the road, so they do not hide the monsters in close-ups
   const far=V.gallery?2:1,nearRoad=(x,y)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)if(g.PATH.has((x+a)+","+(y+b)))return true;return false};
-  for(const k of g.PATH){if(i++%4!==1)continue;const[x,y]=k.split(",").map(Number);
+  for(const k of g.PATH){if(i++%every!==1)continue;const[x,y]=k.split(",").map(Number);
     for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]]){const nx=x+dx*far,ny=y+dy*far,kk=nx+","+ny;if(nx<0||ny<0||nx>=V.COLS||ny>=V.ROWS||g.PATH.has(kk)||taken.has(kk)||(far>1&&nearRoad(nx,ny)))continue;
       taken.add(kk);const n=T.length;T.push({x:nx,y:ny,t:n%4,l:1+(n*7)%3,o:n%4,cd:H(n,3)});break}
     if(T.length>=9)break}
@@ -629,30 +644,30 @@ function demoState(){
   const L=gm().selLevel||1,lw=gm().waveList(gm().levelWaves(L),L),bs=lw.find(([q])=>A.isBoss(q));
   let order=lw.filter(([q])=>!A.isBoss(q)).slice(0,11).map(q=>q[0]);if(bs)order.push(bs[0]);if(!order.length)order=[0];
   if(gal&&reg.length){order=[];let r=0;for(const b of boss)order.push(reg[r++%reg.length],reg[r++%reg.length],b);if(!boss.length)order=reg}
-  return{ph:"wave",sp:1,wm:1,rg:0,lv:20,w:1,P:[{c:0},{c:1},{c:2},{c:3}],T,E:[],nid:1,oi:0,spawnCd:0,order,gal,L};
+  return{ph:"wave",sp:1,wm:1,rg:0,lv:20,w:1,P:[{c:0},{c:1},{c:2},{c:3}],T,E:[],nid:1,oi:0,ri:0,spawnCd:0,order,gal,L};
 }
-function demoSpawn(S,ti,d){const hp=A.enOf(ti).hp*(S.gal?.5:.35),e={id:S.nid++,t:ti,d:d||0,hp,hp0:hp,sl:0,sf:1,cd:2.2};S.E.push(e);return e}
+function demoSpawn(S,ti,d,r){const hp=A.enOf(ti).hp*(S.gal?.5:.35),e={id:S.nid++,t:ti,r:r!=null?r:S.ri++%(V.geo.routes||[V.geo]).length,d:d||0,hp,hp0:hp,sl:0,sf:1,cd:2.2};S.E.push(e);return e}
 // what each boss does in the gallery, with the ability events the logic would send; returns the cooldown
 function demoAbility(S,e){
-  const m=A.modelOf(e.t),g=V.geo,p=gm().posIn(g,e.d);
-  if(m==="rajalendir"){A.onAbility({t:e.t,k:"summon",x:p[0],y:p[1],id:e.id});later.push({at:t+.45,fn:()=>{if(demo===S)for(let j=0;j<3;j++)demoSpawn(S,0,Math.max(0,e.d-.35+j*.35))}});return 5.5}
+  const m=A.modelOf(e.t),p=posOn(e.d,e.r);
+  if(m==="rajalendir"){A.onAbility({t:e.t,k:"summon",x:p[0],y:p[1],id:e.id});later.push({at:t+.45,fn:()=>{if(demo===S)for(let j=0;j<3;j++)demoSpawn(S,0,Math.max(0,e.d-.35+j*.35),e.r)}});return 5.5}
   if(m==="kalajengking"){if(e.ab){e.ab=null;return 4.5}e.ab="burrow";return 2.6}
   if(m==="yeti"){A.onAbility({t:e.t,k:"stomp",x:p[0],y:p[1],id:e.id,r:1.8});
-    later.push({at:t+.52,fn:()=>{if(demo!==S)return;const q=gm().posIn(g,e.d);for(const tw of S.T)if(Math.hypot(tw.x+.5-q[0],tw.y+.5-q[1])<=2.3)tw.fz=2.8}});return 6}
+    later.push({at:t+.52,fn:()=>{if(demo!==S)return;const q=posOn(e.d,e.r);for(const tw of S.T)if(Math.hypot(tw.x+.5-q[0],tw.y+.5-q[1])<=2.3)tw.fz=2.8}});return 6}
   if(m==="naga"){let best=null,bd=3.2;for(const tw of S.T){const dd=Math.hypot(tw.x+.5-p[0],tw.y+.5-p[1]);if(dd<bd){bd=dd;best=tw}}
     if(!best)return .4;A.onAbility({t:e.t,k:"breath",x:p[0],y:p[1],tx:best.x+.5,ty:best.y+.5,r:.8,id:e.id});later.push({at:t+.62,fn:()=>{if(demo===S)best.fz=2.6}});return 5}
   return 99;
 }
 function demoTick(dt){
-  const S=demo,g=V.geo;
+  const S=demo;
   S.spawnCd-=dt;if(S.spawnCd<=0&&S.E.length<(S.gal?10:12)){const ti=S.order[S.oi++%S.order.length];demoSpawn(S,ti,0);S.spawnCd=A.isBoss(ti)?(S.gal?6:2.6):(S.gal?3.4:.9)}
-  for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];e.sl=Math.max(0,e.sl-dt);e.d+=spdOf(e)*dt;if(e.d>=g.PLEN){S.E.splice(i,1);continue}
+  for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];e.sl=Math.max(0,e.sl-dt);e.d+=spdOf(e)*dt;if(e.d>=routeOf(e.r).PLEN){S.E.splice(i,1);continue}
     if(S.gal&&A.isBoss(e.t)){e.cd-=dt;if(e.cd<=0&&e.d>1)e.cd=demoAbility(S,e);if(A.modelOf(e.t)==="naga"&&!e.ab&&e.hp<e.hp0*.5)e.ab="enrage"}}
   for(const tw of S.T){if(tw.fz>0){tw.fz=Math.max(0,tw.fz-dt);continue}tw.cd-=dt;if(tw.cd>0)continue;const st=gm().stat(tw.t,tw.l),r2=st.range*st.range;let best=null,bd=-1;
-    for(const e of S.E){if(e.ab==="burrow"||(S.gal&&e.id===feat.id))continue;const p=gm().posIn(g,e.d),dx=p[0]-tw.x-.5,dy=p[1]-tw.y-.5;if(dx*dx+dy*dy<=r2&&e.d>bd){bd=e.d;best=e}}
-    if(!best)continue;tw.cd=st.rate*1.3;const p=gm().posIn(g,best.d);A.onShot({t:tw.t,x1:tw.x+.5,y1:tw.y+.5,x2:p[0],y2:p[1]});
-    for(const e of S.E){if(e.ab==="burrow")continue;const q=gm().posIn(g,e.d);if(e===best||(st.splash&&Math.hypot(q[0]-p[0],q[1]-p[1])<=st.splash)){if(!(S.gal&&e.id===feat.id))e.hp-=st.dmg;if(st.slow){e.sl=st.slowDur;e.sf=st.slow}}}
-    for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];if(e.hp<=0){const q=gm().posIn(g,e.d);A.onDeath({t:e.t,x:q[0],y:q[1],gold:0});S.E.splice(i,1)}}}
+    for(const e of S.E){if(e.ab==="burrow"||(S.gal&&e.id===feat.id))continue;const p=posOn(e.d,e.r),dx=p[0]-tw.x-.5,dy=p[1]-tw.y-.5;if(dx*dx+dy*dy<=r2&&e.d>bd){bd=e.d;best=e}}
+    if(!best)continue;tw.cd=st.rate*1.3;const p=posOn(best.d,best.r);A.onShot({t:tw.t,x1:tw.x+.5,y1:tw.y+.5,x2:p[0],y2:p[1]});
+    for(const e of S.E){if(e.ab==="burrow")continue;const q=posOn(e.d,e.r);if(e===best||(st.splash&&Math.hypot(q[0]-p[0],q[1]-p[1])<=st.splash)){if(!(S.gal&&e.id===feat.id))e.hp-=st.dmg;if(st.slow){e.sl=st.slowDur;e.sf=st.slow}}}
+    for(let i=S.E.length-1;i>=0;i--){const e=S.E[i];if(e.hp<=0){const q=posOn(e.d,e.r);A.onDeath({t:e.t,x:q[0],y:q[1],gold:0});S.E.splice(i,1)}}}
 }
 
 // ---------- birds circling the island (bats at night) ----------
@@ -675,7 +690,7 @@ A.featured=()=>{
   if(!ev){const c=corpses.find(c=>c.ev.id===feat.id);if(c)return c.ev;if(t-feat.at<.3)return null}   // stay for the death; a monster asked for appears next frame
   if(!ev||t-feat.at>(A.isBoss(ev.t)?9:5.5)){
     const n=A.types();let pick=null;
-    for(let k=1;k<=n&&!pick;k++){const ti=(feat.ti+k)%n;for(const e of enemies.values())if(e.t===ti&&e.vd>1.3&&e.vd<V.geo.PLEN-4&&e.spawn>=1&&(!pick||e.vd<pick.vd))pick=e}
+    for(let k=1;k<=n&&!pick;k++){const ti=(feat.ti+k)%n;for(const e of enemies.values())if(e.t===ti&&e.vd>1.3&&e.vd<routeOf(e.r).PLEN-4&&e.spawn>=1&&(!pick||e.vd<pick.vd))pick=e}
     if(pick){feat={ti:pick.t,id:pick.id,at:t};ev=pick}
   }
   return ev||null;
@@ -695,6 +710,7 @@ A.tick=(dt,mode)=>{
     if(featWant!=null&&demo.gal){const w=featWant;featWant=null;A.feature(w)}
     demoTick(dt);S=demo}
   syncTowers(S,dt);syncEnemies(S,dt);A.fresh=false;corpsesTick(S,dt);if(!V.RM)birdsTick();projTick(dt);bitsTick(dt);fxTick(dt);lightTick(dt);
+  portalTick(S);
   if(!A.demo){fortTick(S,dt);if(S.ph==="win")fireworks(dt)}
   const occ=new Set();for(const r of towers.values())occ.add(r.x+","+r.y);V.decorTick(occ,dt);
   return S;
