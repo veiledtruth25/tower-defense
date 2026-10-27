@@ -39,8 +39,10 @@ function place(c,dist,out){
   out.lookAt(c.tx,c.ty,c.tz);out.updateMatrixWorld();
 }
 function fitPoints(){
-  if(mode==="game"){const ex=V.castle?V.castle.z:0,en=V.portal?V.portal.z:0;
-    return[[-V.HX-.3,0,-V.HZ-.3],[V.HX+.3,0,-V.HZ-.3],[-V.HX-.3,0,V.HZ+.25],[V.HX+.3,0,V.HZ+.25],[-V.HX-.3,1.1,-V.HZ-.3],[V.HX+.3,1.1,-V.HZ-.3],[V.HX+1.4,.3,ex],[-V.HX-1.9,.6,en]]}
+  if(mode==="game"){const ex=V.castle?V.castle.z:0,pts=[[-V.HX-.3,0,-V.HZ-.3],[V.HX+.3,0,-V.HZ-.3],[-V.HX-.3,0,V.HZ+.25],[V.HX+.3,0,V.HZ+.25],[-V.HX-.3,1.1,-V.HZ-.3],[V.HX+.3,1.1,-V.HZ-.3],[V.HX+1.4,.3,ex]];
+    // every portal stays in view, the ground a little behind its arch included
+    for(const P of V.portals||[])pts.push([P.x-P.dir[0]*1.22,.6,P.z-P.dir[1]*1.22]);
+    return pts}
   return[[V.X0,0,V.Z0],[V.X1,0,V.Z0],[V.X0,0,V.Z1],[V.X1,0,V.Z1],[V.X1-.8,3.6,V.Z0+1],[V.X0,-1.7,V.Z1],[V.X1,-1.7,V.Z1]];
 }
 const fitCam=new THREE.PerspectiveCamera();

@@ -33,13 +33,14 @@ Dibuat di akhir `game.js`. Tampilan tidak pernah mengubah isinya.
 | `COLS`, `ROWS`, `LIVES`, `MAXL`, `PCOL` | Ukuran papan, nyawa awal, jumlah level, warna pemain |
 | `TW`, `EN`, `MAPS`, `HELP` | Data menara, musuh, peta dan bantuan |
 | `stat(t,l)`, `mapOf(L)`, `levelWaves(L)`, `waveList(n,L)` | Rumus yang dipakai untuk jangkauan, peta level, banner gelombang |
-| `geo(i)` | Geometri peta `i` (tanpa `i`: peta yang sedang dipakai): `WP`, `SEG`, `PLEN`, `PATH`, `EXIT` |
-| `posIn(geo,d)` | Posisi (koordinat petak) setelah menempuh jarak `d` di jalan |
+| `wavePortals(n,L)` | Portal asal gelombang `n` di level `L`. Tampilan menyalakan portal itu dan meredupkan yang lain |
+| `geo(i)` | Geometri peta `i` (tanpa `i`: peta yang sedang dipakai): `routes`, `portals`, `PATH`, `EXIT`, dan `WP`/`SEG`/`PLEN` jalan 0. Rinciannya di `docs/rencana-banyak-jalan.md` |
+| `posIn(geo,d,r)` | Posisi (koordinat petak) setelah menempuh jarak `d` di jalan `r` (tanpa `r`: jalan 0) |
 | `spd(e)` | Kecepatan musuh `e` saat ini, termasuk efek lambat |
 | `canBuild(x,y)`, `towerAt(x,y)`, `mySlot()`, `myGold()` | Untuk pratinjau bangunan dan lingkar jangkauan |
 | `S`, `selType`, `selXY`, `hover`, `selLevel`, `mode`, `isHost` | State permainan dan pilihan pemain saat ini |
 
-Field state yang dibaca tampilan: `S.ph`, `S.L`, `S.w`, `S.mw`, `S.lv`, `S.sp`, `S.wm`, `S.rg`, `S.P[i].c`, `S.T[i].{x,y,t,l,o}`, `S.E[i].{id,t,d,hp,sl}`. Kalau sesi logika mengganti nama atau arti field ini, catat di `docs/catatan-logika.md` supaya tampilan bisa ikut diubah.
+Field state yang dibaca tampilan: `S.ph`, `S.L`, `S.w`, `S.mw`, `S.lv`, `S.sp`, `S.wm`, `S.rg`, `S.P[i].c`, `S.T[i].{x,y,t,l,o}`, `S.E[i].{id,t,d,hp,sl,r}`. Kalau sesi logika mengganti nama atau arti field ini, catat di `docs/catatan-logika.md` supaya tampilan bisa ikut diubah.
 
 Dua field opsional untuk kemampuan bos (tampilan tetap jalan kalau keduanya tidak ada):
 
@@ -83,6 +84,7 @@ Tampilan menunda ledakan kematian sampai proyektil yang membunuh benar-benar men
 - **Galeri**: buka halaman dengan `#galeri` di akhir alamat, atau tekan "Galeri 3D" di menu. Pertempuran mini di menu lalu memamerkan semua model (termasuk yang belum ada di `EN`), bos memakai kemampuannya, dan kamera mendekati tiap monster. Ketuk kartu di "Kenali musuh" untuk melihat satu monster sendirian.
 - **Menara baru** (indeks 4 ke atas): sementara memakai model Panah. Tulis permintaannya di catatanmu.
 - **Peta baru**: tema mengikuti urutan peta (indeks % 4). Sesi desain bisa menambah tema.
+- **Banyak jalan dan portal**: tampilan menggambar semua `geo.routes` dan satu portal untuk tiap `geo.portals`, menghadap arah jalannya. Portal boleh di sisi barat (`x=-1`), utara (`y=-1`) atau selatan (`y=12`). Sisi timur adalah benteng. Kalau ada portal di selatan, pulau otomatis diperlebar ke selatan. Musuh berjalan di jalan `e.r` dan keluar dari portal jalan itu.
 - **Suasana** mengikuti nomor level: 1–25 pagi, 26–50 senja, 51–75 malam, 76–100 gerhana.
 - **Format jaringan** (`encode`, `decode`, `F`) sepenuhnya milik logika. Tampilan tidak membacanya.
 

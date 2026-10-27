@@ -33,7 +33,16 @@ Detail yang membuat pulau terasa hidup:
 - **Kastel** berdiri di ujung kanan papan: tembok berbenteng, dua menara gerbang beratap, menara utama berbendera, dan obor di gerbang.
 - Saat nyawa berkurang, gerbang berkedip merah, puing berjatuhan, dan layar bergetar.
 - Di bawah 12 nyawa, menara utama berasap. Di bawah 6 nyawa, tembok terbakar. Saat kalah, jeruji gerbang jatuh.
-- **Portal** batu di ujung kiri: musuh muncul dengan kilatan sewarna tema, dan bos muncul dengan gelombang kejut.
+- **Portal** batu tempat musuh muncul dengan kilatan sewarna tema. Bos muncul dengan gelombang kejut.
+
+### Banyak portal dan jalan bercabang
+
+Empat peta baru (Padang Bercabang, Salju Dua Gerbang, Rawa Simpang, Gurun Tiga Gerbang) punya sampai tiga portal dan jalan yang bercabang. Pemilik bisa melihatnya lebih dulu lewat `index.html#peta5` sampai `#peta8`.
+- **Letak portal.** Tiap portal berdiri di tepi papan tempat jalannya masuk (barat, utara atau selatan) dan menghadap ke jalannya. Portal selatan berdiri sedikit lebih jauh dan tanpa batu besar di belakangnya, supaya tidak menutupi papan dari kamera. Pulau ikut melebar ke selatan kalau ada portal di sana.
+- **Jalan.** Semua jalan dicat bersamaan, jadi pertigaan dan pertemuan jalan menyatu rapi tanpa garis tepi yang memotong. Musuh selalu berjalan dan keluar dari portal jalannya sendiri.
+- **Portal aktif.** Portal yang dipakai gelombang berjalan berpusar terang. Portal lain meredup dan pusarannya melambat.
+- **Penanda gelombang berikutnya.** Selama hitung mundur, portal asal gelombang berikutnya memancarkan cincin yang berdenyut, sesuai teks "dari Barat & Utara" di atas papan. Teks itu boleh dua baris, jadi tidak terpotong.
+- **Kamera.** Semua portal selalu masuk bingkai, termasuk di ponsel tegak.
 
 ## Menara dan penjaganya
 

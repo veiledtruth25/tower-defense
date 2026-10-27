@@ -29,9 +29,28 @@ V.themeOf=mi=>V.THEMES[((mi%V.THEMES.length)+V.THEMES.length)%V.THEMES.length];
 V.tierOf=L=>Math.max(0,Math.min(3,Math.floor(((L||1)-1)/25)));
 
 // ---------- road geometry and the height of the ground ----------
-let geo=null,theme=null,mapI=-1;
+// A map can have several roads (geo.routes) from several portals (geo.portals); they all end at the one gate.
+let geo=null,theme=null,mapI=-1,roadSeg=[],roadSteps=[],PORTALS=[];
 const segDist=(px,py,a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;let t=l2?((px-a[0])*dx+(py-a[1])*dy)/l2:0;t=V.clamp(t,0,1);return Math.hypot(px-a[0]-dx*t,py-a[1]-dy*t)};
-V.roadDist=(tx,ty)=>{let d=1e9;for(const s of geo.SEG)d=Math.min(d,segDist(tx,ty,s.a,s.b));return d};
+V.roadDist=(tx,ty)=>{let d=1e9;for(const s of roadSeg)d=Math.min(d,segDist(tx,ty,s.a,s.b));return d};
+// the segments of every road (a stretch that several routes share counts once), and the same roads cut into
+// one-tile steps, so details painted on a shared stretch are not drawn twice
+function roadsOf(g){
+  const seen=new Set(),seg=[],steps=new Map();
+  for(const R of g.routes||[g])for(const s of R.SEG){
+    const k=s.a+"|"+s.b;if(!seen.has(k)){seen.add(k);seg.push(s)}
+    const n=Math.max(1,Math.round(s.l)),ux=(s.b[0]-s.a[0])/n,uy=(s.b[1]-s.a[1])/n;
+    for(let i=0;i<n;i++){const a=[s.a[0]+ux*i,s.a[1]+uy*i],b=[a[0]+ux,a[1]+uy],key=Math.min(a[0],b[0])+","+Math.min(a[1],b[1])+">"+Math.max(a[0],b[0])+","+Math.max(a[1],b[1]);
+      if(!steps.has(key))steps.set(key,{a,b})}}
+  return{seg,steps:[...steps.values()]};
+}
+// each portal with the direction its road leaves in (into the board) and how far behind the road's first
+// point its arch stands; a portal on the south edge stands further back so it hides less of the board
+function portalsOf(g){
+  const RS=g.routes||[g];
+  return(g.portals||[{WP0:g.WP[0],routes:[0],side:"Barat"}]).map((P,i)=>{const R=RS[P.routes[0]],a=R.WP[0],b=R.WP[1],L=Math.hypot(b[0]-a[0],b[1]-a[1])||1,dir=[(b[0]-a[0])/L,(b[1]-a[1])/L];
+    return{i,WP0:P.WP0,side:P.side,routes:P.routes,dir,back:dir[1]<-.5?.55:.28}});
+}
 const gauss=(x,y,cx,cy,r)=>Math.exp(-((x-cx)*(x-cx)+(y-cy)*(y-cy))/(r*r));
 V.height=(x,z)=>{
   const tx=x+V.HX,ty=z+V.HZ,d=V.roadDist(tx,ty);
@@ -83,16 +102,23 @@ function paintGround(){
       if(h>.4){m.strokeStyle="rgba(150,105,55,.24)";m.lineWidth=.03;m.beginPath();m.arc(x+.5,z+.95,.42,Math.PI*1.2,Math.PI*1.8);m.stroke()}
       if(h>.88){m.fillStyle="rgba(110,75,40,.45)";m.beginPath();m.arc(x+.2+h2*.6,z+.3+h*.4,.04,0,7);m.fill()}
     }}
-  // the road, from the portal to the castle gate and on into the courtyard
-  const WP=geo.WP.map(([a,b])=>[a-V.HX,b-V.HZ]),last=WP[WP.length-1];
-  const path=()=>{m.beginPath();WP.forEach((p,i)=>i?m.lineTo(p[0],p[1]):m.moveTo(p[0],p[1]));m.lineTo(V.X1,last[1])};
+  // the roads, from the arch of every portal to the castle gate and on into the courtyard. Each layer is laid
+  // over all roads at once, so the dark edge of one road never cuts across another where they fork or meet.
+  const toW=([a,b])=>[a-V.HX,b-V.HZ],arch=P=>{const p=toW(P.WP0);return[p[0]-P.dir[0]*P.back,p[1]-P.dir[1]*P.back]};
+  const roads=(geo.routes||[geo]).map(R=>[arch(PORTALS[R.portal||0]),...R.WP.map(toW)]),last=roads[0][roads[0].length-1];
   m.lineJoin="round";m.lineCap="butt";
-  const stroke=(w,c)=>{m.strokeStyle=c;m.lineWidth=w;path();m.stroke()};
+  const stroke=(w,c)=>{m.strokeStyle=c;m.lineWidth=w;m.beginPath();for(const W of roads){W.forEach((p,i)=>i?m.lineTo(p[0],p[1]):m.moveTo(p[0],p[1]));m.lineTo(V.X1,last[1])}m.stroke()};
   stroke(1.08,"rgba(0,0,0,.16)");stroke(1.0,T.road[0]);stroke(.86,T.road[1]);stroke(.5,T.road[2]);
-  if(T.dash){m.setLineDash([.12,.22]);stroke(.03,T.dash);m.setLineDash([])}
+  // the dashed centre line keeps one spacing over the whole board, so the dashes of shared stretches line up
+  if(T.dash){m.strokeStyle=T.dash;m.lineWidth=.03;m.beginPath();
+    const dash=(a,b)=>{const hor=Math.abs(b[0]-a[0])>=Math.abs(b[1]-a[1]),u0=Math.min(a[hor?0:1],b[hor?0:1]),u1=Math.max(a[hor?0:1],b[hor?0:1]),c=a[hor?1:0];
+      for(let k=Math.floor(u0/.34);k*.34<u1;k++){const s=Math.max(u0,k*.34),e=Math.min(u1,k*.34+.12);if(e>s){if(hor){m.moveTo(s,c);m.lineTo(e,c)}else{m.moveTo(c,s);m.lineTo(c,e)}}}};
+    for(const s of roadSteps)dash(toW(s.a),toW(s.b));
+    for(const P of PORTALS)dash(arch(P),toW(P.WP0));
+    dash(last,[V.X1,last[1]]);m.stroke()}
   // road surface per theme: boardwalk planks, sled tracks, paving slabs, pebbles
-  for(let i=0;i<WP.length-1;i++){const a=WP[i],b=WP[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/L,uz=(b[1]-a[1])/L;
-    for(let s=0;s<L;s+=T.key==="rawa"?.2:.33){const x=a[0]+ux*s,z=a[1]+uz*s,h=H(Math.round(x*20),Math.round(z*20));
+  for(const st of roadSteps){const a=toW(st.a),b=toW(st.b),L=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/L,uz=(b[1]-a[1])/L;
+    for(let s=0;s<L-.01;s+=T.key==="rawa"?.2:.33){const x=a[0]+ux*s,z=a[1]+uz*s,h=H(Math.round(x*20),Math.round(z*20));
       if(T.key==="rawa"){m.save();m.translate(x,z);m.rotate(Math.atan2(uz,ux));m.fillStyle=["#7a5a38","#6b4e30","#86643f"][Math.floor(h*3)];m.fillRect(-.075,-.43,.15,.86);
         m.fillStyle="rgba(20,14,8,.5)";m.fillRect(.075,-.43,.03,.86);m.fillStyle="rgba(30,20,10,.6)";m.fillRect(-.02,-.36,.03,.03);m.fillRect(-.02,.33,.03,.03);m.restore()}
       else if(T.key==="ular"&&h>.35){m.fillStyle="rgba(120,80,40,.35)";m.beginPath();m.ellipse(x+(h-.5)*.4,z+(H(Math.round(z*9),3)-.5)*.4,.14,.1,h*6,0,7);m.fill()}
@@ -100,8 +126,9 @@ function paintGround(){
       if(h>.6){m.fillStyle=T.peb;m.beginPath();m.arc(x+(h-.8)*1.4,z+(H(3,Math.round(s*9))-.5)*.6,.03+h*.02,0,7);m.fill()}}}
   // courtyard cobbles behind the gate
   for(let x=V.HX+.55;x<V.X1;x+=.22)for(let z=V.Z0+.2;z<V.Z1-.1;z+=.2){const h=H(Math.round(x*9),Math.round(z*9));m.fillStyle=h>.5?"rgba(120,124,132,.55)":"rgba(95,99,108,.55)";m.fillRect(x,z+(Math.round(x*9)%2)*.1,.2,.18)}
-  // scorched ground around the portal
-  {const p=WP[0],g=m.createRadialGradient(p[0]-.3,p[1],0,p[0]-.3,p[1],1.5);g.addColorStop(0,"rgba(20,10,30,.55)");g.addColorStop(1,"rgba(20,10,30,0)");m.fillStyle=g;m.fillRect(p[0]-2,p[1]-2,4,4)}
+  // scorched ground around each portal
+  for(const P of PORTALS){const[cx,cz]=arch(P),g=m.createRadialGradient(cx,cz,0,cx,cz,1.5);
+    g.addColorStop(0,"rgba(20,10,30,.55)");g.addColorStop(1,"rgba(20,10,30,0)");m.fillStyle=g;m.fillRect(cx-2,cz-2,4,4)}
   const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;tex.anisotropy=Math.min(8,V.renderer.capabilities.getMaxAnisotropy());
   return tex;
 }
@@ -174,7 +201,7 @@ function buildDecor(group){
     if(tx>-.25&&tx<V.COLS+.25&&ty>-.25&&ty<V.ROWS+.25)continue;
     if(tx>V.COLS+.3)continue;                                     // castle grounds
     if(V.roadDist(tx,ty)<.9)continue;
-    const p0=geo.WP[0];if(Math.hypot(tx-p0[0],ty-p0[1])<1.4)continue;   // portal
+    if(PORTALS.some(P=>Math.hypot(tx-P.WP0[0]+P.dir[0]*(P.back+.35),ty-P.WP0[1]+P.dir[1]*(P.back+.35))<1.6))continue;   // portals
     const r=H(Math.round(tx*13),Math.round(ty*17));
     if(r<.55)place(D.margin[Math.floor(H(Math.round(ty*7),Math.round(tx*3))*D.margin.length)],tx,ty,null,.85+r*.6,r*40);
     else if(r<.8)place(D.small[Math.floor(r*7)%D.small.length],tx,ty,null,1,r*9);
@@ -268,26 +295,38 @@ function buildCastle(group,disp){
   const tg=tb.build(),tm=new THREE.Mesh(tg,V.MAT.std);group.add(tm);disp.push(tg);
 }
 
-// ---------- the portal the monsters come through ----------
-const SW=`varying vec2 vUv;uniform float uTime;uniform vec3 uCol;
+// ---------- the portals the monsters come through ----------
+// uOn dims a portal that the current or next wave does not use
+const SW=`varying vec2 vUv;uniform float uTime;uniform vec3 uCol;uniform float uOn;
 void main(){vec2 p=vUv*2.0-1.0;float r=length(p);if(r>1.0)discard;float a=atan(p.y,p.x);
-float s=sin(a*3.0+r*9.0-uTime*3.5)*0.5+0.5;float s2=sin(a*5.0-r*14.0+uTime*2.3)*0.5+0.5;
+float s=sin(a*3.0+r*9.0-uTime*(1.2+2.3*uOn))*0.5+0.5;float s2=sin(a*5.0-r*14.0+uTime*2.3)*0.5+0.5;
 vec3 c=uCol*(0.35+s*0.9+s2*0.3)+vec3(1.0)*pow(max(0.0,1.0-r),3.0)*0.9;
-gl_FragColor=vec4(c,(0.55+0.45*(1.0-r))*(1.0-smoothstep(0.88,1.0,r)));}`;
+gl_FragColor=vec4(c*(0.3+0.7*uOn),(0.55+0.45*(1.0-r))*(1.0-smoothstep(0.88,1.0,r))*(0.45+0.55*uOn));}`;
 function buildPortal(group,disp){
-  const p0=geo.WP[0],x=p0[0]-V.HX-.28,z=p0[1]-V.HZ,b=new V.Build(),base=V.TOP-.02,ST=["#5e5868","#4f4a58","#6b6576"];
-  for(const s of[-1,1]){b.add(G.box(.26,1.15,.3),ST,x,base+.575,z+s*.66);b.add(G.box(.34,.12,.38),"#3e3946",x,base+.06,z+s*.66)}
-  b.add(G.tor(.66,.14,5,12,Math.PI),ST,x,base+1.15,z,0,Math.PI/2,0);b.add(G.box(.3,.22,.24),"#3e3946",x,base+1.82,z);
-  b.add(G.dod(.75),["#3a3542","#2f2b36"],x-.75,base+.35,z,0,0,0,1,1.2,1.6);
-  const g=b.build(),m=new THREE.Mesh(g,V.MAT.std);m.castShadow=true;m.receiveShadow=true;group.add(m);disp.push(g);
-  const rb=new V.Build();for(let i=0;i<7;i++){const a=Math.PI*(i+.5)/7;rb.add(G.box(.06,.08,.02),"#ffffff",x+.15,base+1.15+Math.sin(a)*.66,z+Math.cos(a)*.66,0,Math.PI/2,a)}
-  const rg=rb.build(),rm=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(theme.portal),vertexColors:true}));group.add(rm);disp.push(rg,rm.material);
-  const sg=new THREE.CircleGeometry(.6,40),sm=new THREE.ShaderMaterial({uniforms:{uTime:V.uTime,uCol:{value:new THREE.Color(theme.portal)}},
-    vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",fragmentShader:SW,
-    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
-  const sw=new THREE.Mesh(sg,sm);sw.position.set(x,base+.68,z);sw.rotation.y=Math.PI/2;sw.scale.set(1,1.05,1);group.add(sw);disp.push(sg,sm);
-  V.portal={x:x+.1,y:base+.6,z,col:V.srgb(theme.portal)};
-  const rc=new THREE.Color(theme.portal);anim.push(t=>{rm.material.color.copy(rc).multiplyScalar(.75+.35*Math.sin(t*3))});
+  V.portals=[];
+  const ST=["#5e5868","#4f4a58","#6b6576"],base=V.TOP-.02,rc=new THREE.Color(theme.portal);
+  for(const P of PORTALS){
+    // built facing +x like the west portal, then turned to face along its road
+    const d=P.dir,[ax,az]=[P.WP0[0]-V.HX-d[0]*P.back,P.WP0[1]-V.HZ-d[1]*P.back],grp=new THREE.Group();
+    grp.position.set(ax,0,az);grp.rotation.y=Math.atan2(-d[1],d[0]);group.add(grp);
+    const b=new V.Build();
+    for(const s of[-1,1]){b.add(G.box(.26,1.15,.3),ST,0,base+.575,s*.66);b.add(G.box(.34,.12,.38),"#3e3946",0,base+.06,s*.66)}
+    b.add(G.tor(.66,.14,5,12,Math.PI),ST,0,base+1.15,0,0,Math.PI/2,0);b.add(G.box(.3,.22,.24),"#3e3946",0,base+1.82,0);
+    // the rock behind the arch, left out on the south edge where it would stand between the camera and the portal
+    if(d[1]>-.5)b.add(G.dod(.75),["#3a3542","#2f2b36"],-.75,base+.35,0,0,0,0,1,1.2,1.6);
+    else for(const s of[-1,1])b.add(G.dod(.28),["#3a3542","#2f2b36"],-.2,base+.12,s*1.05,0,s,0,1.2,.9,1);
+    const g=b.build(),m=new THREE.Mesh(g,V.MAT.std);m.castShadow=true;m.receiveShadow=true;grp.add(m);disp.push(g);
+    const rb=new V.Build();for(let i=0;i<7;i++){const a=Math.PI*(i+.5)/7;rb.add(G.box(.06,.08,.02),"#ffffff",.15,base+1.15+Math.sin(a)*.66,Math.cos(a)*.66,0,Math.PI/2,a)}
+    const rg=rb.build(),rm=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:rc.clone(),vertexColors:true}));grp.add(rm);disp.push(rg,rm.material);
+    const sg=new THREE.CircleGeometry(.6,40),sm=new THREE.ShaderMaterial({uniforms:{uTime:V.uTime,uCol:{value:rc.clone()},uOn:{value:1}},
+      vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",fragmentShader:SW,
+      transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+    const sw=new THREE.Mesh(sg,sm);sw.position.set(0,base+.68,0);sw.rotation.y=Math.PI/2;sw.scale.set(1,1.05,1);grp.add(sw);disp.push(sg,sm);
+    const portal={i:P.i,x:ax+d[0]*.1,y:base+.6,z:az+d[1]*.1,dir:d,col:V.srgb(theme.portal),on:1,goal:1};V.portals.push(portal);
+    anim.push((t,dt)=>{portal.on=V.damp(portal.on,portal.goal,3,dt||.016);sm.uniforms.uOn.value=portal.on;
+      rm.material.color.copy(rc).multiplyScalar((.75+.35*Math.sin(t*3+P.i*2))*(.35+.65*portal.on))});
+  }
+  V.portal=V.portals[0];
 }
 
 // ---------- landmarks at the back of each island ----------
@@ -404,6 +443,9 @@ V.buildWorld=(mi,tierI)=>{
   if(worldGroup){V.scene.remove(worldGroup);for(const d of disp)d.dispose&&d.dispose();if(V.scene.background&&V.scene.background.dispose)V.scene.background.dispose()}
   disp=[];anim=[];decor=null;stars=null;V.smoke=null;
   mapI=mi;geo=BB.game.geo(mi);theme=V.themeOf(mi);V.theme=theme;V.tier=V.TIERS[tierI];V.geo=geo;
+  ({seg:roadSeg,steps:roadSteps}=roadsOf(geo));PORTALS=portalsOf(geo);
+  // a portal on the south edge needs a wider strip of island below the board (the north strip is wide already)
+  V.Z1=V.HZ+(PORTALS.some(P=>P.dir[1]<-.5)?2.1:1.2);
   worldGroup=new THREE.Group();V.scene.add(worldGroup);
   setLights(V.tier);
   buildIsland(worldGroup,disp);buildWater(worldGroup,disp);buildDecor(worldGroup);buildGrass(worldGroup,disp);
@@ -413,7 +455,7 @@ V.buildWorld=(mi,tierI)=>{
 };
 // per-frame scenery animation and the weather
 V.worldTick=(dt,t)=>{
-  for(const f of anim)f(t);
+  for(const f of anim)f(t,dt);
   if(stars)stars.rotation.y=t*.004;
   if(!V.fxCloud)return;
   for(const c of clouds){c.x+=c.sp*dt;if(c.x>40)c.x-=80;V.fxCloud.place(c)}

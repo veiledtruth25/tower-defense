@@ -143,3 +143,24 @@ Angka HP efektif bab 4 tinggi karena Golem Lava tahan Panah. Bot tetap menang se
 - Kartu "Musuh baru" yang belum sempat tampil dulu terbawa ke permainan berikutnya (misalnya kartu Kura muncul di level 76). Sekarang antrean dikosongkan saat level berganti atau keluar ke menu. Jenis musuh baru juga baru dianggap dikenal setelah kartunya benar-benar tampil.
 - Di peta malam, satu bintang bisa tampil sebagai kotak putih besar saat kamera menukik di awal permainan. Bintang sekarang berukuran tetap di layar.
 - `A.EXTRA` (model tanpa tipe `EN`, khusus galeri) sekarang kosong, karena kedelapan model sudah punya tipe.
+
+## 2026-10-27 (lanjutan): banyak portal dan jalan bercabang, langkah 2 selesai
+
+Rencanamu di `docs/rencana-banyak-jalan.md` sudah saya baca. Bagian tampilan (langkah 2) sudah selesai, jadi langkah 3 bisa jalan. Semua permintaanmu di catatan logika sudah dikerjakan:
+1. **Jalan:** semua `geo.routes` digambar. `V.roadDist` (cekungan jalan, rumput, dekorasi) memeriksa SEG semua jalan. Lapisan jalan dicat bersamaan untuk semua jalan, jadi pertigaan dan pertemuan jalan menyatu rapi. Detail permukaan (papan, batu kerikil, garis putus-putus) digambar sekali saja di ruas yang dipakai bersama.
+2. **Portal:** satu di tiap `geo.portals[p].WP0`, diputar menghadap arah jalannya (barat, utara, selatan). Portal selatan berdiri sedikit lebih jauh dan tanpa batu besar, supaya tidak menutupi baris bawah papan dari kamera. Kalau ada portal selatan, pulau diperlebar ke selatan (`V.Z1`).
+3. **Musuh:** posisinya dari `posIn(g, d, e.r)`. Ini berlaku untuk arah hadap, tubuh naga, kebocoran (`PLEN` jalannya sendiri), target Hujan Meteor, sasaran cadangan semburan naga, dan lendir panggilan Raja Lendir. Kilatan muncul dan gelombang kejut bos keluar dari portal jalan musuh itu.
+4. **Dekorasi:** di papan sudah memakai `geo.PATH`. Di tepi pulau, dekorasi menjauhi semua jalan dan semua portal.
+
+Tambahan dari tampilan:
+- **Portal aktif:** portal yang dipakai gelombang berjalan (`wavePortals`) berpusar terang, yang lain meredup. Selama hitung mundur, portal asal gelombang berikutnya memancarkan cincin berdenyut.
+- **Teks gelombang:** `#waveTxt` sekarang boleh dua baris. Sebelumnya "dari Barat & Utara & Selatan" terpotong jadi "dari B…".
+- **Kamera:** semua portal masuk bingkai, termasuk di ponsel tegak dan mendatar.
+- **Pertempuran mini di menu:** monster bergantian memakai semua jalan, dan menaranya tersebar di semua jalan.
+- Sudah diuji di `#peta5` sampai `#peta8` (desktop, ponsel tegak, ponsel mendatar), dan `node tests/smoke.js` lolos. Peta lama tampil sama seperti sebelumnya.
+
+**Bug yang perlu kamu perbaiki di `game.js`** (sengaja tidak saya ubah karena kamu sedang mengerjakan langkah 3):
+- `themedBoss` mengindeks tabel empat entri dengan `mapOf(L)`: `[L>=40?9:3,8,6,7][mapOf(L)]`. Di peta 4–7 hasilnya `undefined` untuk level 10 ke atas.
+- Akibatnya `renderMeta` error saat level 10+ dipilih di `#peta5`–`#peta8`, karena `EN[undefined].n`. Info level di menu jadi tidak diperbarui.
+- `bossType` juga mengembalikan `undefined`, jadi sim akan error saat bos gelombang ke-5 muncul.
+- Usulan perbaikan: `[...][mapOf(L)%4]`, sesuai tema yang juga mengikuti `indeks % 4`. Atau beri peta 4–7 bos khasnya sendiri. Langkah 3 dengan bot di level 10+ pasti akan menemukan ini.
