@@ -71,11 +71,43 @@ Menara baru jatuh dari atas lalu memantul. Saat ditingkatkan, menara membesar se
 | Yeti (bos) | Raksasa putih berbulu faset, wajah biru bertaring, tanduk melengkung, lengan panjang bercakar | Langkah berat dengan lengan berayun, napas beruap dan hujan salju kecil di sekitarnya. Untuk "stomp" kedua tinju diangkat lalu dihantamkan ke tanah, dan menara di dekatnya terbungkus es. |
 | Naga Api (bos) | Kepala bertanduk dengan rahang yang bisa membuka, tubuh berpelat yang panjang, sayap kelelawar, ekor menyala | Kepala melayang dan menoleh, tubuh mengikuti jalan sambil meliuk, sayap mengepak. Untuk "breath" ia mendongak lalu menyemburkan api ke menara, meninggalkan bekas hangus. Saat mengamuk, tubuhnya menyala dan menebar bara. |
 
-Raja Lendir, Kalajengking, Yeti dan Naga Api punya aura sewarna tubuhnya di tanah. Selama belum ada di data logika, keenam model baru bisa dilihat di **galeri**: buka halaman dengan `#galeri`, atau tekan "Galeri 3D" di menu. Kamera lalu mendekati tiap monster bergiliran, dan mengetuk kartu di "Kenali musuh" menampilkan satu monster sendirian.
+Raja Lendir, Kalajengking, Yeti dan Naga Api punya aura sewarna tubuhnya di tanah.
+
+### Pasukan bab berikutnya
+
+Delapan karakter berikut disiapkan supaya musuh berganti seiring level naik. Selama belum ada di data logika, semuanya tampil di **galeri** (`#galeri` atau tombol "Galeri 3D" di menu). Usulan pembagiannya per 25 level ada di `docs/catatan-desain.md`.
+
+| Musuh | Peran | Model | Gerak |
+|---|---|---|---|
+| Goblin | Dasar | Goblin hijau berkepala besar, telinga panjang, rompi kulit, pentungan berduri | Berjalan terhuyung cepat, pentungan berayun |
+| Serigala | Cepat | Serigala abu-abu berperut terang, mata kuning, ekor lebat | Berlari melompat-lompat (gallop), kepala menoleh, ekor berkibas |
+| Tengkorak | Dasar | Kerangka berhelm penyok, rongga mata bercahaya merah, pedang berkarat | Berbaris kaku, rahang berkeletuk, pedang terhunus ke depan |
+| Kelelawar | Cepat, terbang | Kelelawar ungu berbulu, telinga besar, mata merah, sayap selaput | Terbang zig-zag di atas jalan dengan kepakan cepat. Bayangannya menunjukkan tinggi terbangnya. |
+| Mumi | Tebal | Tubuh terbalut perban berlapis, mata hijau menyala di balik celah | Menyeret kaki dengan lengan terulur ke depan, sobekan perban berkibar, debu mengepul |
+| Iblis | Dasar | Setan kecil merah bertanduk, sayap kecil, ekor runcing, garpu trisula | Melompat-lompat, sayap mengepak, bara keluar dari tanduknya |
+| Anjing Api | Cepat | Anjing hitam bermata jingga dengan surai api di punggung | Berlari seperti serigala, meninggalkan asap dan bara |
+| Golem Lava | Tebal | Bongkahan batu gelap dengan retakan magma, kepalan raksasa | Melangkah berat, lengan berayun, magma berdenyut dan menetes |
+
+Kematiannya juga khas:
+- Pentungan goblin terlempar, dan tulang tengkorak berhamburan dengan tengkoraknya melambung.
+- Sobekan perban mumi beterbangan.
+- Garpu iblis terpental di tengah semburan api.
+- Anjing api meledak menjadi bara.
+- Golem lava pecah jadi batu dan pecahan magma yang menyala.
+
+### Musuh yang berganti seiring level
+
+- **Menu**: di bawah info level ada deretan potret "Musuh di level N". Musuh yang pertama kali muncul di level itu bertanda "Baru". Pertempuran mini di atas menu juga memakai musuh dan bos level yang sedang dipilih.
+- **Kenali musuh**: kartu diurutkan dari level pertama musuh itu muncul, dengan label "Sejak level 1" atau "Mulai level N".
+- **Saat bermain**: musuh yang baru pertama kali kamu temui diperkenalkan dengan kartu di kiri atas, berisi potret, nama dan kemampuannya, dan disertai bunyi pendek. Catatan musuh yang sudah pernah dilihat disimpan di browser.
+- Semua ini dihitung dari susunan gelombang di logika, jadi otomatis mengikuti kalau susunannya berubah.
+
+Mengetuk kartu di "Kenali musuh" membuka galeri dan menampilkan monster itu sendirian dari dekat. Di galeri, menara berdiri dua petak dari jalan supaya tidak menutupi monster.
 
 - **Reaksi kena tembak**: monster menggembung dan berkedip putih, tepat saat proyektil mendarat.
 - **Efek lambat**: monster berwarna es, animasinya melambat, dan serpihan salju berjatuhan.
 - **Kematian tiap jenis berbeda**: lendir muncrat dan meninggalkan genangan, tawon pecah jadi percikan, tempurung kura hancur jadi kepingan, dan Raja meledak beruntun disertai hujan koin. Hantu menguap ke atas, perisai dan pedang goblin terlempar, mahkota Raja Lendir terpental, capit dan sengat kalajengking berhamburan, Yeti meledak jadi salju, dan Naga meledak beruntun dari kepala sampai ekor.
+- **Tembakan yang ditahan**: kalau musuh tahan terhadap Panah atau Jitu (lihat `res` di logika), pelurunya memantul dengan percikan dan bunyi dentang.
 
 Monster melangkah sedikit ke kiri atau ke kanan jalur, jadi rombongan tidak terlihat bertumpuk.
 

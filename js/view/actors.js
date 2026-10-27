@@ -18,12 +18,14 @@ const BOSS_MODELS=new Set(["raja","rajalendir","kalajengking","yeti","naga"]);
 // models made before the logic has an enemy type for them. Only the gallery (#galeri) and its menu
 // battle use them, with these stats; once EN has a type with the same model, the extra is dropped.
 A.EXTRA=[
-  {n:"Hantu",model:"hantu",hp:55,spd:1.5,r:.27,col:"#e6e1fb",ds:"Melayang tembus pandang di atas jalan"},
-  {n:"Perisai",model:"perisai",hp:160,spd:.95,r:.3,col:"#9aa6bd",ds:"Goblin berzirah, panah memantul di perisainya"},
-  {n:"Raja Lendir",model:"rajalendir",hp:900,spd:.6,r:.45,col:"#8fd16a",boss:true,ds:"Bos: memuntahkan lendir kecil"},
-  {n:"Kalajengking",model:"kalajengking",hp:1200,spd:.75,r:.45,col:"#c97b35",boss:true,ds:"Bos: menyelam ke pasir dan lolos dari tembakan"},
-  {n:"Yeti",model:"yeti",hp:1500,spd:.5,r:.45,col:"#eef3f8",boss:true,ds:"Bos: hentakannya membekukan menara"},
-  {n:"Naga Api",model:"naga",hp:2000,spd:.62,r:.45,col:"#d84a30",boss:true,ds:"Bos: semburan apinya menghanguskan menara"}
+  {n:"Goblin",model:"goblin",hp:48,spd:1.35,r:.26,col:"#6f9a4a",ds:"Goblin berpentungan, datang bergerombol"},
+  {n:"Serigala",model:"serigala",hp:30,spd:2.5,r:.27,col:"#7d8794",ds:"Berlari sangat cepat dalam kawanan"},
+  {n:"Tengkorak",model:"tengkorak",hp:55,spd:1.25,r:.26,col:"#e8e2cf",res:{3:.5},ds:"Prajurit tulang. Peluru Jitu menembus rongganya, hanya 50% kena"},
+  {n:"Kelelawar",model:"kelelawar",hp:26,spd:2.8,r:.23,col:"#4a3a5e",res:{1:.4},ds:"Terbang zig-zag. Ledakan Meriam hanya 40% kena"},
+  {n:"Mumi",model:"mumi",hp:220,spd:.75,r:.34,col:"#d9cfb0",ds:"Lambat dan sangat tahan pukulan"},
+  {n:"Iblis",model:"iblis",hp:60,spd:1.5,r:.25,col:"#c8382c",res:{2:.5},ds:"Setan kecil bergarpu. Serangan Es hanya 50% kena"},
+  {n:"Anjing Api",model:"anjingapi",hp:36,spd:2.7,r:.29,col:"#2e2628",ds:"Anjing neraka yang meninggalkan jejak bara"},
+  {n:"Golem Lava",model:"golemlava",hp:260,spd:.7,r:.37,col:"#3a302c",res:{0:.3},ds:"Batu dan magma. Panah hanya 30% kena"}
 ];
 const enModel=i=>{const e=gm().EN[i]||{};return e.model||DEFAULT_MODEL[i]||"x"};
 let xl=null,xn=-1;
@@ -36,7 +38,8 @@ A.modelOf=ti=>{const EN=gm().EN;if(ti<EN.length)return enModel(ti);const x=extra
 A.isBoss=ti=>{const e=A.enOf(ti)||{};return e.boss!=null?!!e.boss:BOSS_MODELS.has(A.modelOf(ti))};
 const spdOf=e=>e.t<gm().EN.length?gm().spd(e):(A.enOf(e.t)||{spd:1}).spd*(e.sl>0?e.sf:1);
 const sizeOf=ti=>{const e=A.enOf(ti)||{r:.3};return e.r*2.45*(A.isBoss(ti)?1.4:1)};
-const HEIGHT={kilat:.75,raja:1.25,hantu:1.05,perisai:1.18,rajalendir:.82,kalajengking:.5,yeti:1.2,naga:.75};
+const HEIGHT={kilat:.75,raja:1.25,hantu:1.05,perisai:1.18,rajalendir:.82,kalajengking:.5,yeti:1.2,naga:.75,
+  goblin:1.1,serigala:.78,anjingapi:.82,tengkorak:1.12,kelelawar:1,mumi:1.18,iblis:1.08,golemlava:1.32};
 const heightOf=ti=>(HEIGHT[A.modelOf(ti)]||.62)*sizeOf(ti);
 A.heightOf=heightOf;
 
@@ -157,7 +160,8 @@ function abState(ev,from,to){
 function impact(k,x,y,z,tx,ty){
   const hitR=k===1?1.05:k===2?.8:.4;
   for(const ev of enemies.values())if(Math.abs(ev.tx-tx)<hitR&&Math.abs(ev.ty-ty)<hitR)ev.fl=1;
-  if(k===0){const e=enemyNear(tx,ty,.5);if(e&&A.modelOf(e.t)==="perisai"){puff(V.PA,9,x,y,z,2.6,1.4,.22,.06,.02,[1,.95,.7],1,3);fx("glow",x,y,z,.1,.15,.5,[1,.95,.75],1);say("v:block",{x});return}}
+  // a shot the target mostly shrugs off (EN[t].res from the logic) glances off with sparks
+  if(k===0||k===3){const e=enemyNear(tx,ty,.5),rs=e&&(A.enOf(e.t)||{}).res;if(rs&&rs[k]!=null&&rs[k]<.6){puff(V.PA,9,x,y,z,2.6,1.4,.22,.06,.02,[1,.95,.7],1,3);fx("glow",x,y,z,.1,.15,.5,[1,.95,.75],1);say("v:block",{x});return}}
   if(k===0){puff(V.PA,6,x,y,z,2.2,.6,.25,.07,.02,[1,.95,.75],1);puff(V.PN,3,x,.08,z,.4,.3,.5,.1,.3,[.72,.64,.52],.4,-.1)}
   else if(k===1||k===9){const big=k===9?1.7:1;
     fx("glow",x,y+.15,z,.22,.6*big,2.3*big,[1,.78,.45],1);fx("ring",x,.07,z,.45,.3,2.1*big,[1,.75,.4],.8);fx("decal",x,.075,z,3,1.1*big,1.1*big,[.12,.09,.07],.55);
@@ -194,6 +198,16 @@ function dieFx(ti,x,z,gold){
   else if(m==="naga"){const ev=evFor(ti,x,z,2),sg=ev&&ev.sg?ev.sg.map(p=>p.slice()):[[x,y,z]];
     sg.forEach((p,i)=>later.push({at:t+i*.1,fn:()=>{impact(9,p[0],p[1],p[2],-99,-99);puff(V.PA,10,p[0],p[1],p[2],1.4,1.8,.9,.12,.03,[1,.55,.2],1,-.6,1.2)}}));
     later.push({at:t+sg.length*.1,fn:()=>{fx("ring",x,.08,z,1,.5,4.4,[1,.6,.3],1);coinRain(x,y,z,12);V.shake(.9)}})}
+  else if(m==="goblin"){puff(V.PN,10,x,y,z,1.2,1.4,.8,.14,.45,[.62,.7,.45],.6,-.05,2);burst(6,"chunk",x,y,z,1.6,2.6,.9,.9,LC("#6f9a4a"));bit("m_gob_w",x,y+.2,z,V.rnd(-1.4,1.4),3.6,V.rnd(-1.4,1.4),1.3,s,[1,1,1],10)}
+  else if(m==="serigala"){puff(V.PN,14,x,y,z,1.6,1.2,.9,.16,.5,[.62,.65,.7],.6,-.05,1.8);burst(7,"chunk",x,y,z,1.8,2.6,.9,.9,LC("#7d8794"))}
+  else if(m==="anjingapi"){puff(V.PN,10,x,y,z,1.4,1.2,1,.18,.6,[.3,.26,.26],.6,-.15,1.6);burst(7,"chunk",x,y,z,1.8,2.6,.9,.9,LC("#2e2628"));
+    puff(V.PA,22,x,y,z,2.4,2,.6,.16,.03,[1,.55,.2],1,-.8,1.4);fx("glow",x,y,z,.3,.4,1.8,[1,.55,.25],.9);flash(x,y+.4,z,[1,.5,.2],2,.3)}
+  else if(m==="tengkorak"){burst(12,"chunk",x,y,z,2,3,1.1,.9,LC("#e8e2cf"));bit("m_tk_s",x,y+.4,z,V.rnd(-1,1),4.2,V.rnd(-1,1),1.6,s,[1,1,1],8);puff(V.PN,8,x,.1,z,.8,.5,.8,.15,.45,[.7,.68,.62],.45,-.1)}
+  else if(m==="kelelawar"){puff(V.PN,12,x,y,z,1.4,1,.7,.12,.4,[.35,.28,.45],.7,.4,1.6);burst(5,"chunk",x,y,z,1.4,1.6,.8,.7,LC("#4a3a5e"));puff(V.PA,6,x,y,z,1.8,.6,.3,.06,.02,[1,.3,.3],1)}
+  else if(m==="mumi"){for(let i=0;i<6;i++)bit("m_mm_s",x,y+.3,z,V.rnd(-1.6,1.6),V.rnd(2.5,4),V.rnd(-1.6,1.6),1.5,s,[1,1,1],7);puff(V.PN,14,x,.2,z,1.4,.9,1.1,.2,.7,[.78,.72,.58],.55,-.1,1.6);fx("glow",x,y+.4,z,.3,.3,1.2,[.5,1,.4],.7)}
+  else if(m==="iblis"){puff(V.PA,20,x,y,z,2,1.6,.5,.14,.03,[1,.5,.2],1,-.6,1.4);puff(V.PN,10,x,y+.2,z,.9,1,1.1,.2,.7,[.3,.28,.28],.5,-.2,1.2);bit("m_ib_f",x,y+.3,z,V.rnd(-1.4,1.4),3.8,V.rnd(-1.4,1.4),1.3,s,[1,1,1],9);fx("glow",x,y,z,.25,.3,1.4,[1,.5,.2],.9)}
+  else if(m==="golemlava"){burst(10,"chunk",x,y,z,2.2,3,1.3,1.3,LC("#3a302c"));burst(8,"chunk",x,y,z,2,3.4,1.1,1,[4,1.6,.4]);puff(V.PA,24,x,y,z,2.4,2.2,.7,.16,.03,[1,.5,.15],1,1.2,1.2);
+    fx("decal",x,.076,z,3,.3,1.3,[.15,.07,.04],.6);fx("glow",x,y,z,.35,.5,2.2,[1,.5,.2],.9);flash(x,y+.5,z,[1,.45,.15],2.6,.4);V.shake(.2)}
   else{const col=(A.enOf(ti)||{}).col||"#ffffff";puff(V.PA,14,x,y,z,2.2,1.4,.5,.1,.03,SC(col),1,2);burst(6,"chunk",x,y,z,1.6,2.4,.9,1,LC(col))}
   fx("glow",x,y,z,.18,.3*s,1.2*s,[1,1,1],.7);
   if(!boss)bit("coin",x,y+.1,z,V.rnd(-.6,.6),3.2,V.rnd(-.6,.6),.9,1,[1,1,1],10);
@@ -370,6 +384,85 @@ DRAW.yeti=(ev,x,y,z,yaw,ph,s,c)=>{
     for(let i=0;i<4;i++)V.PN.add(_w.x,_w.y,_w.z,dx*V.rnd(.4,.8)+V.rnd(-.1,.1),V.rnd(0,.2),dz*V.rnd(.4,.8)+V.rnd(-.1,.1),1.1,.07,.3,.92,.96,1,.5,-.05,1.8)}
   if(Math.random()<fdt*10)V.PN.add(x+V.rnd(-.8,.8)*s,y+V.rnd(1.2,1.6)*s,z+V.rnd(-.8,.8)*s,V.rnd(-.1,.1),-.6,V.rnd(-.1,.1),1.6,.05,.03,.95,.97,1,.9,0,.3);
 };
+// ---------- the third bestiary: the armies of the later chapters ----------
+// goblin: a quick waddle with the club swinging
+DRAW.goblin=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*1.15,st=Math.sin(p);
+  V.M(x,y+Math.abs(st)*.06*s,z,st*.09,yaw,-.06,s,s,s,_R);
+  K.m_gob.push(_R,c[0],c[1],c[2]);K.m_gob_g.push(_R,c[0]*1.2,c[1]*1.2,c[2]*1.2);
+  for(const sd of[1,-1])V.put(K.m_gob_l,_R,0,.24,.11*sd,0,0,Math.sin(p+(sd>0?0:Math.PI))*.7,1,1,1,c[0],c[1],c[2]);
+  V.put(K.m_gob_w,_R,.13,.41,.29,.15,0,-.45+Math.sin(p)*.45,1,1,1,c[0],c[1],c[2]);
+};
+// wolf and hellhound: a bounding gallop, the tail streaming behind; the hellhound burns
+function canineDraw(k,ev,x,y,z,yaw,ph,s,c){
+  const K=V.K,p=ph*1.35,st=Math.sin(p),pitch=Math.cos(p)*.09;
+  V.M(x,y+Math.abs(st)*.07*s,z,0,yaw,pitch,s,s,s,_R);
+  K[k].push(_R,c[0],c[1],c[2]);
+  V.M(.48,.6,0,0,Math.sin(ph*.4+ev.id)*.15,.05-pitch*1.4,1,1,1,_L2);_P.multiplyMatrices(_R,_L2);K[k+"_h"].push(_P,c[0],c[1],c[2]);K[k+"_g"].push(_P,1.3,1.3,1.3);
+  for(const[lx,o]of[[.3,0],[-.3,Math.PI]])for(const sd of[1,-1])V.put(K[k+"_l"],_R,lx,.38,.12*sd,0,0,Math.sin(p+o+(sd>0?0:.45))*.75,1,1,1,c[0],c[1],c[2]);
+  V.put(K[k+"_t"],_R,-.42,.5,0,0,Math.sin(ph*.9+ev.id)*.35,1.07-pitch-.15*st,1,1,1,c[0],c[1],c[2]);
+}
+DRAW.serigala=(ev,x,y,z,yaw,ph,s,c)=>canineDraw("m_srg",ev,x,y,z,yaw,ph,s,c);
+DRAW.anjingapi=(ev,x,y,z,yaw,ph,s,c)=>{
+  canineDraw("m_anj",ev,x,y,z,yaw,ph,s,c);
+  const f=1+Math.sin(t*17+ev.id)*.18;V.put(V.K.m_anj_f,_R,0,0,0,0,0,0,1,f,1,1.3,1,1);
+  if(A.icon)return;
+  if(Math.random()<fdt*16){_w.set(V.rnd(-.35,.35),.7,V.rnd(-.1,.1)).applyMatrix4(_R);V.PA.add(_w.x,_w.y,_w.z,V.rnd(-.1,.1),V.rnd(.5,1),V.rnd(-.1,.1),.6,.08,.02,1,V.rnd(.45,.7),.2,1,-.2,1,1)}
+  if(Math.random()<fdt*10)V.PN.add(x+V.rnd(-.15,.15),y+.06,z+V.rnd(-.15,.15),0,.25,0,1,.08,.25,.3,.24,.22,.4,-.05,1.2);
+};
+// skeleton: a stiff march, the jaw clacking, red sparks in the eyes, a rusty sword held out
+DRAW.tengkorak=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.95,st=Math.sin(p);
+  V.M(x,y+Math.abs(st)*.04*s,z,st*.05,yaw,-.03,s,s,s,_R);
+  K.m_tk.push(_R,c[0],c[1],c[2]);const gl=1.2+.4*Math.sin(t*9+ev.id);K.m_tk_g.push(_R,gl,gl,gl);
+  V.put(K.m_tk_j,_R,.05,.875,0,0,0,-Math.max(0,Math.sin(ph*2.1))*.4,1,1,1,c[0],c[1],c[2]);
+  for(const sd of[1,-1])V.put(K.m_tk_l,_R,0,.43,.09*sd,0,0,Math.sin(p+(sd>0?0:Math.PI))*.55,1,1,1,c[0],c[1],c[2]);
+  V.put(K.m_tk_a,_R,0,.82,-.19,.12,0,Math.sin(p)*.5,1,1,1,c[0],c[1],c[2]);
+  V.M(0,.82,.19,-.15,0,.95+Math.sin(p*2)*.08,1,1,1,_L2);_P.multiplyMatrices(_R,_L2);K.m_tk_a.push(_P,c[0],c[1],c[2]);
+  V.put(K.m_per_w,_P,.09,-.41,0,0,0,-Math.PI/2+.2,.85,.85,.85,c[0]*.78,c[1]*.62,c[2]*.5);
+};
+// bat: flits above the road in a zigzag with fast wingbeats; a soft shadow shows how high it flies
+DRAW.kelelawar=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,fl=Math.sin(ph*3.2),zig=Math.sin(ph*.55+ev.id)*.18*s,cx=x+Math.sin(yaw)*zig,cz=z+Math.cos(yaw)*zig,hov=(.62+Math.sin(ph*.8)*.1+fl*.04)*s;
+  V.M(cx,y+hov,cz,Math.cos(ph*.55+ev.id)*.3,yaw,-.12,s,s,s,_R);
+  K.m_kl.push(_R,c[0],c[1],c[2]);K.m_kl_g.push(_R,1.3,1.3,1.3);
+  const w=fl*1.05+.15;V.put(K.m_kl_w,_R,-.02,.05,.08,-w,-.15,0,1,1,1,c[0],c[1],c[2]);V.put(K.m_kl_w,_R,-.02,.05,-.08,Math.PI+w,.15,0,1,1,1,c[0],c[1],c[2]);
+  if(A.icon)return;
+  V.M(cx,y+.08,cz,0,0,0,s*.7,1,s*.7,_B);V.FX.decal.push(_B,.1,.08,.14,.28);
+};
+// mummy: a slow shuffle with the arms reaching forward and loose bandages fluttering
+DRAW.mumi=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.6,st=Math.sin(p);
+  V.M(x,y+Math.abs(st)*.025*s,z,st*.08,yaw,-.1,s,s,s,_R);
+  K.m_mm.push(_R,c[0],c[1],c[2]);const gl=1.1+.3*Math.sin(t*4+ev.id);K.m_mm_g.push(_R,gl,gl,gl);
+  for(const sd of[1,-1]){V.put(K.m_mm_l,_R,0,.32,.11*sd,0,0,Math.sin(p+(sd>0?0:Math.PI))*.32,1,1,1,c[0],c[1],c[2]);
+    V.put(K.m_mm_a,_R,.02,.86,.24*sd,-.08*sd,0,1.45+Math.sin(p*1.3+(sd>0?0:1.7))*.12,1,1,1,c[0],c[1],c[2])}
+  for(let i=0;i<4;i++){const sd=i%2?1:-1,f=Math.sin(t*4+i*1.9+ev.id)*.35;
+    V.put(K.m_mm_s,_R,i<2?.32:-.2,i<2?.84:.95,(i<2?.25:.12)*sd,f*.6,0,i<2?-.3:.45+f*.5,1,1,1,c[0],c[1],c[2])}
+  if(!A.icon&&Math.random()<fdt*3)V.PN.add(x+V.rnd(-.2,.2),y+.05,z+V.rnd(-.2,.2),0,.2,0,.9,.08,.3,.78,.72,.58,.4,-.05,1.5);
+};
+// imp: hops along, wings fluttering, the pitchfork held ready, sparks rising from its horns
+DRAW.iblis=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*1.25,hop=Math.abs(Math.sin(p)),sq=1-(1-hop)*.12,sx=s/Math.sqrt(sq);
+  V.M(x,y+hop*.16*s,z,0,yaw,-.08+Math.cos(p)*.06,sx,s*sq,sx,_R);
+  K.m_ib.push(_R,c[0],c[1],c[2]);K.m_ib_g.push(_R,1.3,1.3,1.3);
+  for(const sd of[1,-1])V.put(K.m_ib_l,_R,0,.21,.1*sd,0,0,hop*.6-.2,1,1,1,c[0],c[1],c[2]);
+  const w=Math.sin(ph*4)*.7+.3,wr=c[0]*4.5,wg=c[1]*1.2,wb=c[2]*.9;
+  V.put(K.m_kl_w,_R,-.12,.55,.07,-w,-.3,0,.55,.55,.55,wr,wg,wb);V.put(K.m_kl_w,_R,-.12,.55,-.07,Math.PI+w,.3,0,.55,.55,.55,wr,wg,wb);
+  V.put(K.m_ib_f,_R,.11,.41,.26,0,0,-.45+Math.sin(p)*.15,1,1,1,c[0],c[1],c[2]);
+  if(!A.icon&&Math.random()<fdt*6){_w.set(-.02,1.02,(Math.random()<.5?1:-1)*.14).applyMatrix4(_R);V.PA.add(_w.x,_w.y,_w.z,V.rnd(-.1,.1),V.rnd(.4,.8),V.rnd(-.1,.1),.5,.07,.02,1,.55,.2,1,-.2,1,1)}
+};
+// lava golem: heavy slow steps, arms swinging, magma pulsing, drops of lava falling
+DRAW.golemlava=(ev,x,y,z,yaw,ph,s,c)=>{
+  const K=V.K,p=ph*.55,st=Math.sin(p),gl=1.1+.35*Math.sin(t*3+ev.id);
+  V.M(x,y+(Math.abs(st)*.05-.02)*s,z,st*.05,yaw,-.06,s,s,s,_R);
+  K.m_gl.push(_R,c[0],c[1],c[2]);K.m_gl_g.push(_R,gl*c[0],gl*c[1],gl*c[2]);
+  for(const sd of[1,-1]){V.put(K.m_gl_l,_R,0,.38,.17*sd,0,0,Math.sin(p+(sd>0?0:Math.PI))*.4,1,1,1,c[0],c[1],c[2]);
+    V.M(.02,.98,.42*sd,-.12*sd,0,Math.sin(p+(sd>0?Math.PI:0))*.38,1,1,1,_L2);_P.multiplyMatrices(_R,_L2);K.m_gl_a.push(_P,c[0],c[1],c[2]);K.m_gl_k.push(_P,gl,gl,gl)}
+  if(A.icon)return;
+  if(Math.random()<fdt*4){_w.set(V.rnd(-.2,.35),V.rnd(.5,1),V.rnd(-.3,.3)).applyMatrix4(_R);V.PA.add(_w.x,_w.y,_w.z,0,0,0,.8,.07,.03,1,V.rnd(.45,.65),.15,1,6,.3)}
+  if(Math.abs(st)<.06&&Math.random()<.4)V.PN.add(x+V.rnd(-.3,.3),y+.05,z+V.rnd(-.3,.3),V.rnd(-.3,.3),.3,V.rnd(-.3,.3),1,.12,.4,.36,.32,.3,.45,-.05,2);
+};
 // fire dragon: a hovering head that looks around, a body of plates that follows the road with a slither,
 // bat wings and a burning tail. "breath" rears up and pours fire at a target; e.ab "enrage" makes it glow
 const NG_N=9,NG=Array.from({length:NG_N+1},()=>({x:0,y:0,z:0,sc:1}));
@@ -441,7 +534,7 @@ function syncEnemies(S,dt){
     const s=sizeOf(e.t)*V.ease.back(ev.spawn)*(1+ev.fl*.14);
     drawMonster(ev,ev.x,ev.y,ev.z,ev.yaw,ev.ph,s,tint(ev));
     if(ev.sl>0&&ev.bw<.5&&Math.random()<dt*6)V.PN.add(ev.x+V.rnd(-.2,.2),ev.y+heightOf(e.t),ev.z+V.rnd(-.2,.2),0,-.2,0,.8,.05,.03,.9,.97,1,.9,0,.5);
-    const mh=(A.enOf(e.t)||{hp:1}).hp*(S.wm||1),f=V.clamp(e.hp/mh,0,1);
+    const mh=e.mhp||(A.enOf(e.t)||{hp:1}).hp*(S.wm||1),f=V.clamp(e.hp/mh,0,1);
     if(!A.isBoss(e.t)&&f<.999&&!A.demo&&ev.bw<.5)hpBar(ev.x,ev.y+heightOf(e.t)+.16,ev.z,f,Math.max(.42,sizeOf(e.t)*.8));
     if(A.modelOf(e.t)==="kilat"&&Math.random()<dt*20)V.PA.add(ev.x,ev.y+.32,ev.z,0,0,0,.3,.07,.02,1,.9,.5,.5,0,0);
   }
@@ -532,14 +625,18 @@ function fireworks(dt){
 let demo=null;
 function demoState(){
   const g=V.geo,T=[];let i=0;const taken=new Set();
+  // in the gallery the towers stand two tiles back from the road, so they do not hide the monsters in close-ups
+  const far=V.gallery?2:1,nearRoad=(x,y)=>{for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)if(g.PATH.has((x+a)+","+(y+b)))return true;return false};
   for(const k of g.PATH){if(i++%4!==1)continue;const[x,y]=k.split(",").map(Number);
-    for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]]){const nx=x+dx,ny=y+dy,kk=nx+","+ny;if(nx<0||ny<0||nx>=V.COLS||ny>=V.ROWS||g.PATH.has(kk)||taken.has(kk))continue;
+    for(const[dx,dy]of[[0,-1],[0,1],[1,0],[-1,0]]){const nx=x+dx*far,ny=y+dy*far,kk=nx+","+ny;if(nx<0||ny<0||nx>=V.COLS||ny>=V.ROWS||g.PATH.has(kk)||taken.has(kk)||(far>1&&nearRoad(nx,ny)))continue;
       taken.add(kk);const n=T.length;T.push({x:nx,y:ny,t:n%4,l:1+(n*7)%3,o:n%4,cd:H(n,3)});break}
     if(T.length>=9)break}
   const gal=!!V.gallery,n=A.types(),reg=[],boss=[];for(let k=0;k<n;k++)(A.isBoss(k)?boss:reg).push(k);
-  let order=[0,1,0,2,1,0,0,2,1,3].filter(x=>x<gm().EN.length);
+  // the menu battle previews the selected level: its last wave's enemies, then its boss
+  const L=gm().selLevel||1,lw=gm().waveList(gm().levelWaves(L),L),bs=lw.find(([q])=>A.isBoss(q));
+  let order=lw.filter(([q])=>!A.isBoss(q)).slice(0,11).map(q=>q[0]);if(bs)order.push(bs[0]);if(!order.length)order=[0];
   if(gal&&reg.length){order=[];let r=0;for(const b of boss)order.push(reg[r++%reg.length],reg[r++%reg.length],b);if(!boss.length)order=reg}
-  return{ph:"wave",sp:1,wm:1,rg:0,lv:20,w:1,P:[{c:0},{c:1},{c:2},{c:3}],T,E:[],nid:1,oi:0,spawnCd:0,order,gal};
+  return{ph:"wave",sp:1,wm:1,rg:0,lv:20,w:1,P:[{c:0},{c:1},{c:2},{c:3}],T,E:[],nid:1,oi:0,spawnCd:0,order,gal,L};
 }
 function demoSpawn(S,ti,d){const hp=A.enOf(ti).hp*(S.gal?.5:.35),e={id:S.nid++,t:ti,d:d||0,hp,hp0:hp,sl:0,sf:1,cd:2.2};S.E.push(e);return e}
 // what each boss does in the gallery, with the ability events the logic would send; returns the cooldown
@@ -601,7 +698,7 @@ A.tick=(dt,mode)=>{
   const demoNow=mode!=="game"||!S;
   if(demoNow!==A.demo){A.reset()}  // switching between the menu battle and a real game starts clean
   A.demo=demoNow;
-  if(A.demo){if(!demo||demo.g!==V.geo||demo.gal!==!!V.gallery){A.reset();demo=demoState();demo.g=V.geo}
+  if(A.demo){if(!demo||demo.g!==V.geo||demo.gal!==!!V.gallery||(!demo.gal&&demo.L!==(gm().selLevel||1))){A.reset();demo=demoState();demo.g=V.geo}
     if(featWant!=null&&demo.gal){const w=featWant;featWant=null;A.feature(w)}
     demoTick(dt);S=demo}
   syncTowers(S,dt);syncEnemies(S,dt);A.fresh=false;corpsesTick(S,dt);if(!V.RM)birdsTick();projTick(dt);bitsTick(dt);fxTick(dt);lightTick(dt);

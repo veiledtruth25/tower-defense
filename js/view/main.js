@@ -116,7 +116,8 @@ const ov=V.ov={};
 let ovEl=null,labels=[],bossEl=null,bannerEl=null,endEl=null,tintEl=null,hurtEl=null,bossShown=0,bossTrail=1;
 function ovInit(){
   ovEl=document.createElement("div");ovEl.className="ov";ovEl.setAttribute("aria-hidden","true");
-  ovEl.innerHTML='<div class="ov-tint"></div><div class="ov-hurt"></div><div class="ov-boss"><b></b><span><i class="tr"></i><i class="fi"></i></span></div><div class="ov-banner"><h3></h3><p></p></div><div class="ov-end"></div>';
+  ovEl.innerHTML='<div class="ov-tint"></div><div class="ov-hurt"></div><div class="ov-boss"><b></b><span><i class="tr"></i><i class="fi"></i></span></div><div class="ov-banner"><h3></h3><p></p></div><div class="ov-end"></div>'+
+    '<div class="ov-foe"><canvas width="96" height="96"></canvas><div><small>Musuh baru</small><b></b><span></span></div></div>';
   tintEl=ovEl.querySelector(".ov-tint");hurtEl=ovEl.querySelector(".ov-hurt");bossEl=ovEl.querySelector(".ov-boss");bannerEl=ovEl.querySelector(".ov-banner");endEl=ovEl.querySelector(".ov-end");
   $("#cvWrap").append(ovEl);
 }
@@ -138,7 +139,7 @@ function ovTick(dt,S){
     if(L.age>=L.life)L.el.style.opacity="0"}
   // boss bar with a trailing damage strip
   const b=mode==="game"&&S?V.A.bossOf(S):null;
-  if(b){const EN=BB.game.EN,mh=(EN[b.t]||{hp:1}).hp*(S.wm||1),f=V.clamp(b.hp/mh,0,1),n=S.E.filter(e=>V.A.isBoss(e.t)).length;
+  if(b){const EN=BB.game.EN,mh=b.mhp||(EN[b.t]||{hp:1}).hp*(S.wm||1),f=V.clamp(b.hp/mh,0,1),n=S.E.filter(e=>V.A.isBoss(e.t)).length;
     if(!bossShown){bossShown=1;bossTrail=f;bossEl.classList.add("on")}
     bossEl.querySelector("b").textContent=(EN[b.t].n||"Bos").toUpperCase()+(n>1?" ×"+n:"");
     bossTrail=Math.max(f,V.damp(bossTrail,f,2.5,dt));bossEl.querySelector(".fi").style.transform="scaleX("+f.toFixed(4)+")";bossEl.querySelector(".tr").style.transform="scaleX("+bossTrail.toFixed(4)+")"}
@@ -247,20 +248,64 @@ function renderIcon(cv,kind,id){
 }
 
 // look-at height, distance, scale and offset of each model's portrait
-const ICON={kilat:[.42,2.3,.66,0],raja:[.55,2.9,.72,0],hantu:[.48,2.3,.82,0],perisai:[.5,2.4,.85,0],rajalendir:[.42,2.4,.8,0],kalajengking:[.36,2.6,.78,.18],yeti:[.62,2.9,.68,0],naga:[.42,3,.6,.35]};
+const ICON={kilat:[.42,2.3,.66,0],raja:[.55,2.9,.72,0],hantu:[.48,2.3,.82,0],perisai:[.5,2.4,.85,0],rajalendir:[.42,2.4,.8,0],kalajengking:[.36,2.6,.78,.18],yeti:[.62,2.9,.68,0],naga:[.42,3,.6,.35],
+  goblin:[.5,2.4,.8,0],serigala:[.36,2.6,.8,.05],anjingapi:[.36,2.6,.8,.05],tengkorak:[.52,2.5,.78,0],kelelawar:[.6,2.3,.85,0],mumi:[.55,2.6,.72,0],iblis:[.5,2.4,.82,0],golemlava:[.6,2.9,.66,0]};
 
 // ---------- the bestiary in the menu: one portrait per enemy type (in the gallery, the new models too) ----------
 const BEAST_DS={lendir:"Lemah tapi datang berbondong-bondong",kilat:"Tawon super cepat",kura:"Tempurung tebal, jalannya lambat",raja:"Bos di gelombang ke-5 dan terakhir"};
 function buildBestiary(){
   const el=$("#bestiary");if(!el)return;el.textContent="";
-  const A=V.A,n=A.types();
-  for(let i=0;i<n;i++){const e=A.enOf(i);if(!e)continue;
+  const A=V.A,n=A.types(),fl=firstLevels(),ids=Array.from({length:n},(_,i)=>i);
+  ids.sort((a,b)=>(fl[a]==null?1e3+a:fl[a])-(fl[b]==null?1e3+b:fl[b])||a-b);
+  for(const i of ids){const e=A.enOf(i);if(!e)continue;
     const d=document.createElement("button");d.type="button";d.className="beast"+(A.isBoss(i)?" boss":"")+(A.isExtra(i)?" new":"");d.dataset.t=i;d.title="Lihat "+e.n+" dari dekat";
     const c=document.createElement("canvas");c.width=88;c.height=88;const b=document.createElement("b");b.textContent=e.n;
     const s=document.createElement("span");s.textContent=e.ds||BEAST_DS[A.modelOf(i)]||"";d.append(c,b,s);
     if(A.isExtra(i)){const tg=document.createElement("em");tg.textContent="Baru";d.append(tg)}
+    else if(fl[i]!=null){const tg=document.createElement("i");tg.className="from";tg.textContent=fl[i]>1?"Mulai level "+fl[i]:"Sejak level 1";d.append(tg)}
     el.append(d);renderIcon(c,"enemy",i)}
 }
+// ---------- how the enemies change as the levels go up ----------
+// the first level each enemy type walks in, read from the logic's own waves (so it follows any change there)
+let firstLv=null;
+function firstLevels(){
+  if(firstLv)return firstLv;const g=BB.game;firstLv={};
+  for(let L=1;L<=g.MAXL;L++){const mw=g.levelWaves(L);for(const n of[1,5,10,15,20,25,30,mw])if(n<=mw)for(const[t]of g.waveList(n,L))if(firstLv[t]==null)firstLv[t]=L}
+  return firstLv;
+}
+// every enemy type of level L, in the order they first come
+function foesOf(L){const g=BB.game,seen=new Set(),out=[];for(let n=1;n<=g.levelWaves(L);n++)for(const[t]of g.waveList(n,L))if(!seen.has(t)){seen.add(t);out.push(t)}return out}
+// portraits are rendered once per type and copied after that
+const iconCache=new Map();
+function enemyIcon(cv,t){let c=iconCache.get(t);if(!c){c=document.createElement("canvas");c.width=c.height=96;renderIcon(c,"enemy",t);iconCache.set(t,c)}
+  const x=cv.getContext("2d");x.clearRect(0,0,cv.width,cv.height);x.drawImage(c,0,0,cv.width,cv.height)}
+// the menu: who attacks in the selected level; a type that is new at this level is marked
+let foesL=0;
+function lineupTick(){
+  const el=$("#lvFoes");if(!el||mode!=="menu")return;const L=BB.game.selLevel||1;if(L===foesL)return;foesL=L;
+  const A=V.A,fl=firstLevels();el.textContent="";
+  const h=document.createElement("span");h.className="lvfoes-h";h.textContent="Musuh di level "+L;el.append(h);
+  for(const t of foesOf(L)){const e=A.enOf(t)||{},d=document.createElement("span"),isNew=fl[t]===L&&L>1;
+    d.className="foe"+(A.isBoss(t)?" boss":"")+(isNew?" new":"");d.title=(e.n||"")+(isNew?" (baru di level ini)":"");
+    const c=document.createElement("canvas");c.width=c.height=72;enemyIcon(c,t);d.append(c);
+    if(isNew){const b=document.createElement("b");b.textContent="Baru";d.append(b)}
+    el.append(d)}
+}
+// in a game: a card introduces each enemy type the first time this player meets it
+let seenFoes=new Set(),foeQ=[],foeT=0;
+try{seenFoes=new Set(JSON.parse(localStorage.getItem("bb-seen")||"[]"))}catch(e){}
+function foeTick(dt,S){
+  if(mode!=="game"||!S||!ovEl)return;
+  for(const e of S.E){const m=V.A.modelOf(e.t);if(seenFoes.has(m))continue;seenFoes.add(m);foeQ.push(e.t);
+    try{localStorage.setItem("bb-seen",JSON.stringify([...seenFoes]))}catch(x){}}
+  const card=ovEl.querySelector(".ov-foe");
+  if(foeT>0){foeT-=dt;if(foeT<=0)card.classList.remove("on");return}
+  if(!foeQ.length)return;
+  const t=foeQ.shift(),e=V.A.enOf(t)||{};enemyIcon(card.querySelector("canvas"),t);
+  card.querySelector("b").textContent=e.n||"";card.querySelector("span").textContent=e.ds||BEAST_DS[V.A.modelOf(t)]||"";
+  card.classList.toggle("boss",V.A.isBoss(t));restart(card,"on");foeT=4.2;BB.emit("v:newfoe",{t});
+}
+
 // a card shows that monster up close in the gallery; the button turns the gallery on and off
 document.addEventListener("click",e=>{
   if(!e.target.closest)return;
@@ -323,6 +368,7 @@ view.frame=dt=>{
   V.renderer.render(V.scene,V.cam);
   ovTick(dt,mode==="game"?S:null);
   if(V.hud)V.hud.tick(dt,mode==="game"?S:null,W,H);
+  foeTick(dt,mode==="game"?S:null);lineupTick();
   perf(dt);void st;
 };
 view.reset=()=>{if(ok){V.A.reset();pw=pph=plv=null}};

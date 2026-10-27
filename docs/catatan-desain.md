@@ -43,3 +43,52 @@ Sesi logika: baca file ini setiap mulai bekerja. Balas di `docs/catatan-logika.m
    - **Naga Api**: tiap sekitar 6 detik kirim `{t,k:"breath",x,y,id,tx,ty,r:.8}` ke menara terdekat dalam 3 petak, lalu isi `fz=3` untuk menara itu. Di bawah 50% HP, isi `e.ab="enrage"` (misalnya sambil menambah kecepatan).
    Di multiplayer, sertakan `ab` dan `fz` di `encode`/`decode`, dan kirim `ability` lewat event `F` seperti `shot`.
 3. Jalankan `node tests/smoke.js` sebelum push.
+
+## 2026-10-27: delapan karakter baru dan pasukan per bab
+
+Terima kasih, enam musuh, kemampuan bos dan bot ujinya sudah saya tarik dan cek. Semuanya cocok dengan tampilan, dan `node tests/smoke.js` tetap lolos. Pemilik proyek minta supaya **makin lama bermain, musuhnya makin berganti**. Bagian tampilan sudah saya kerjakan. Susunan gelombangnya ada di `game.js`, jadi saya kirim usulannya di sini.
+
+**Yang sudah dikerjakan di tampilan**
+- **Delapan model baru**, lengkap dengan animasi, kematian dan suara: Goblin, Serigala, Tengkorak, Kelelawar, Mumi, Iblis, Anjing Api, Golem Lava (model `goblin`, `serigala`, `tengkorak`, `kelelawar`, `mumi`, `iblis`, `anjingapi`, `golemlava`). Selama belum ada di `EN`, semuanya tampil di galeri.
+- **Menu**: deretan potret "Musuh di level N" di bawah `#lvInfo` (elemen baru `#lvFoes`). Musuh yang pertama kali muncul di level itu bertanda "Baru". Pertempuran mini di menu memakai musuh level yang dipilih.
+- **"Kenali musuh"** diurutkan menurut level pertama munculnya, dengan label "Mulai level N".
+- **Kartu "Musuh baru"** muncul saat pemain pertama kali bertemu suatu jenis.
+- Semua di atas dihitung dari `waveList`/`levelWaves`, jadi tidak ada API baru.
+- **Efek tembakan memantul** sekarang membaca `EN[t].res` (kurang dari 0,6 untuk Panah atau Jitu), jadi tidak lagi khusus Perisai.
+- **Gaya panel bot uji** (`#botBox`, `#botSpeeds`, `#botLog`), `#ownerNote` dan `.lv.lock` sudah saya rapikan, sesuai permintaanmu.
+- Perbaikan: urutan menu di ponsel (level dan tombol main di bawah pulau) sebelumnya tertimpa aturan CSS lain, dan sekarang sudah benar.
+
+**Usulan untuk sesi logika: satu pasukan tiap 25 level**
+
+| Bab | Level | Pasukan | Dasar | Cepat | Tebal | Selingan A (lv 8+) | Selingan B (lv 15+) |
+|---|---|---|---|---|---|---|---|
+| 1 | 1–25 | Makhluk Lembah | Lendir | Kilat | Kura | Hantu | Perisai |
+| 2 | 26–50 | Pasukan Goblin | Goblin | Serigala | Perisai | Kura | Hantu |
+| 3 | 51–75 | Pasukan Arwah | Tengkorak | Kelelawar | Mumi | Hantu | Goblin |
+| 4 | 76–100 | Pasukan Api | Iblis | Anjing Api | Golem Lava | Kelelawar | Mumi |
+
+Bab 1 sama persis dengan susunanmu sekarang, dan jadwal bos tetap seperti punyamu. Usulan ini sudah saya coba di salinan sementara. Hasilnya: level 26 diserang goblin dan serigala, level 51 oleh pasukan arwah, level 76 oleh pasukan api. Tampilan, kartu "Musuh baru" dan deretan musuh di menu berjalan tanpa error.
+
+1. Tambahkan ke `EN` (indeks 10–17). Angka dan `res` silakan disesuaikan:
+   ```js
+   {n:"Goblin",hp:48,spd:1.35,rw:5,r:.26,col:"#6f9a4a",leak:1,model:"goblin",ds:"Goblin berpentungan, datang bergerombol"},
+   {n:"Serigala",hp:30,spd:2.5,rw:5,r:.27,col:"#7d8794",leak:1,model:"serigala",ds:"Berlari sangat cepat dalam kawanan"},
+   {n:"Tengkorak",hp:55,spd:1.25,rw:6,r:.26,col:"#e8e2cf",leak:1,model:"tengkorak",res:{3:.5},ds:"Prajurit tulang. Peluru Jitu menembus rongganya, hanya 50% kena"},
+   {n:"Kelelawar",hp:26,spd:2.8,rw:5,r:.23,col:"#4a3a5e",leak:1,model:"kelelawar",res:{1:.4},ds:"Terbang zig-zag. Ledakan Meriam hanya 40% kena"},
+   {n:"Mumi",hp:220,spd:.75,rw:14,r:.34,col:"#d9cfb0",leak:2,model:"mumi",ds:"Lambat dan sangat tahan pukulan"},
+   {n:"Iblis",hp:60,spd:1.5,rw:6,r:.25,col:"#c8382c",leak:1,model:"iblis",res:{2:.5},ds:"Setan kecil bergarpu. Serangan Es hanya 50% kena"},
+   {n:"Anjing Api",hp:36,spd:2.7,rw:6,r:.29,col:"#2e2628",leak:1,model:"anjingapi",ds:"Anjing neraka yang meninggalkan jejak bara"},
+   {n:"Golem Lava",hp:260,spd:.7,rw:16,r:.37,col:"#3a302c",leak:2,model:"golemlava",res:{0:.3},ds:"Batu dan magma. Panah hanya 30% kena"}
+   ```
+2. Di `waveList`, peran tiap slot (dasar, cepat, tebal, selingan A, selingan B) diambil dari pasukan bab level itu:
+   ```js
+   // one army per 25 levels: [basic, fast, tank, extra A (from level 8), extra B (from level 15)]
+   const ARMY=[[0,1,2,4,5],[10,11,5,2,4],[12,13,14,4,10],[15,16,17,13,14]];
+   const armyOf=L=>ARMY[Math.min(3,Math.floor((L-1)/25))];
+   // di dalam waveList, mengganti perulangan yang sekarang:
+   const A=armyOf(L);
+   for(let i=0;i<cnt;i++){let r=0;if(e>=3&&i%3===1)r=1;if(e>=5&&i%5===4)r=2;if(e>=12&&i%4===2)r=2;
+     if(L>=8&&i%6===3)r=3;if(L>=15&&i%7===5)r=4;
+     const t=A[r];list.push([t,(r===1?.45:EN[t].spd<1?1.1:.7)*g])}
+   ```
+3. Format jaringan tidak perlu diubah, karena indeks `EN` baru ditambahkan di belakang.

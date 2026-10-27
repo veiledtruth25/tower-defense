@@ -241,7 +241,7 @@ V.makeModels=()=>{
     V.defKit("m_per_s",b.build(),M.std,200)}
   b=B();b.add(G.box(.06,.36,.02),"#dfe6ee",0,.26,0);b.add(G.cone(.03,.07,4),"#dfe6ee",0,.47,0,0,Math.PI/4,0,1,1,.4);
   b.add(G.box(.16,.03,.04),GOLD,0,.075,0);b.add(G.cyl(.018,.018,.12,5),"#5a3d22",0,0,0);b.add(G.sph(.028,5,4),GOLD,0,-.07,0);
-  V.defKit("m_per_w",b.build(),M.std,200);
+  V.defKit("m_per_w",b.build(),M.std,400);
   b=B();b.add(G.cap(.07,.12,2,6),"#3c4252",0,-.1,0);b.add(G.box(.16,.06,.1),"#2a2e38",.03,-.22,0);V.defKit("m_per_l",b.build(),M.std,400);
   // king slime: the slime's shape as see-through jelly, a dark core with bubbles inside, brows, a moustache and a crown
   V.defKit("m_rl",slimeGeo,M.jelly,40);
@@ -299,6 +299,134 @@ V.makeModels=()=>{
     b=B();b.add(new THREE.ShapeGeometry(ws),"#8a2a1e",0,0,0,Math.PI/2,0,0);
     for(const p of[[-.1,.55],[-.32,.42],[-.45,.25]])seg(b,[0,0,0],[p[0],0,p[1]],.018,.01,"#5a1a10");
     V.defKit("m_ng_w",b.build(),M.cloth,80)}
+  // ---------- the third bestiary: the armies of the later chapters ----------
+  // goblin: a big head with long ears and a long nose, a leather vest and a spiked club
+  const GB=["#6f9a4a","#78a552","#669044"],GH=["#7fae55","#88b85e","#76a24e"];
+  b=B();
+  b.add(G.sph(.25,9,7),GB,0,.42,0,0,0,0,1,1,.9);
+  b.add(G.cyl(.262,.282,.2,10,true),["#7a5230","#6b4a2e"],0,.42,0);b.add(G.tor(.268,.03,3,12),"#3a2818",0,.31,0,Math.PI/2,0,0);
+  b.add(G.box(.08,.16,.2),"#6b4a2e",.16,.22,0,0,0,.12);
+  b.add(G.sph(.25,10,8),GH,.04,.8,0,0,0,0,1,.92,1);
+  for(const s of[1,-1]){
+    b.add(G.cone(.075,.32,5),GH,-.02,.86,.24*s,(Math.PI/2-.2)*s,0,.45);
+    b.add(G.box(.09,.025,.07),"#2d3a1e",.24,.88,.08*s,.3*s,0,-.2);
+    b.add(G.cone(.018,.05,3),"#f4f0de",.27,.665,.05*s);
+    seg(b,[0,.58,.2*s],[.12,.42,.28*s],.05,.045,GB[0]);b.add(G.sph(.055,6,5),GH[0],.13,.41,.29*s);
+  }
+  b.add(G.cone(.055,.2,5),GH[1],.3,.75,0,0,0,-Math.PI/2-.25);
+  b.add(G.box(.04,.03,.16),"#2d2416",.265,.665,0);
+  b.add(G.cone(.05,.16,4),"#2d2416",-.06,1.07,0,0,0,.4);
+  V.defKit("m_gob",b.build(),M.std,240);
+  b=B();for(const s of[1,-1])b.add(G.sph(.042,6,5),"#ffd84a",.255,.8,.09*s);V.defKit("m_gob_g",b.build(),M.glow,240,false);
+  b=B();b.add(G.cap(.055,.1,2,6),GB[0],0,-.09,0);b.add(G.sph(.075,6,4),GH[0],.04,-.2,0,0,0,0,1.5,.55,1);V.defKit("m_gob_l",b.build(),M.std,480);
+  b=B();b.add(G.cyl(.075,.03,.42,7),["#8a5a2b","#7a4e24"],0,.2,0);
+  for(let i=0;i<4;i++){const a=i*Math.PI/2+.4;b.add(G.cone(.02,.07,4),"#d8d2c0",Math.cos(a)*.07,.34,Math.sin(a)*.07,0,-a,-Math.PI/2)}
+  V.defKit("m_gob_w",b.build(),M.std,240);
+  // wolf and hellhound: one build, two coats. The head, legs and tail are parts so they can move
+  function canine(p,coat,belly,dark,eye){
+    const top=(x,y)=>y<.37?belly:coat;
+    b=B();
+    b.add(G.sph(.3,10,7),top,0,.42,0,0,0,0,1.45,.78,.74);
+    b.add(G.sph(.22,8,6),(x,y)=>y<.42?belly:coat,.3,.47,0,0,0,0,1,1.05,.95);
+    b.add(G.sph(.17,8,6),coat,-.32,.46,0,0,0,0,1,.95,.9);
+    V.defKit(p,b.build(),M.std,240);
+    b=B();
+    b.add(G.sph(.16,9,7),coat,0,0,0,0,0,0,1.15,.95,.9);
+    b.add(G.cyl(.055,.095,.22,6),coat,.22,-.04,0,0,0,-Math.PI/2);
+    b.add(G.sph(.08,6,4),belly,.18,-.11,0,0,0,0,1.6,.5,.8);
+    b.add(G.sph(.036,5,4),"#141016",.34,-.02,0);
+    for(const s of[1,-1])b.add(G.cone(.055,.15,4),coat,-.03,.15,.085*s,.35*s,0,.15);
+    V.defKit(p+"_h",b.build(),M.std,240);
+    b=B();for(const s of[1,-1])b.add(G.sph(.028,5,4),eye,.135,.045,.075*s);V.defKit(p+"_g",b.build(),M.glow,240,false);
+    b=B();seg(b,[0,0,0],[.02,-.18,0],.045,.038,coat);seg(b,[.02,-.18,0],[-.02,-.34,0],.034,.03,dark);b.add(G.sph(.045,6,4),dark,.015,-.36,0,0,0,0,1.4,.6,1);
+    V.defKit(p+"_l",b.build(),M.std,960);
+    b=B();b.add(G.cone(.075,.38,6),coat,0,.19,0);b.add(G.cone(.042,.12,5),belly,0,.41,0);V.defKit(p+"_t",b.build(),M.std,240);
+  }
+  canine("m_srg","#7d8794","#c9cdd3","#4a5160","#ffd84a");
+  canine("m_anj","#2e2628","#4a3430","#1a1416","#ff8a2a");
+  // the hellhound's mane of fire, swept back along its spine
+  b=B();for(let i=0;i<7;i++){const x=-.34+i*.11,h=.22+.12*(1-Math.abs(x)*2.2);b.add(G.cone(.07,h,5),i%2?"#ffd27a":"#ff7a2a",x,.6+h*.42-x*x*.5,0,0,0,.45)}
+  for(const s of[1,-1])b.add(G.cone(.05,.2,5),"#ff9a3a",.38,.66,.07*s,.3*s,0,.6);
+  V.defKit("m_anj_f",b.build(),M.glow,240,false);
+  // skeleton: bones, a dented helmet, a clacking jaw, red sparks in the eye holes
+  const BN=["#e8e2cf","#ddd5bd","#f0ebdc"];
+  const skull=bb=>{bb.add(G.sph(.16,9,7),BN,.03,.96,0,0,0,0,1.05,1.05,.95);for(const s of[1,-1])bb.add(G.sph(.048,6,5),"#1e1618",.15,.97,.06*s);bb.add(G.cone(.025,.05,3),"#1e1618",.18,.9,0,0,0,Math.PI)};
+  b=B();skull(b);
+  b.add(G.hemi(.168,8,3),["#6d6a64","#5d5a54"],.01,1.0,0,0,0,-.22);
+  b.add(G.cyl(.022,.026,.42,5),BN,0,.64,0);
+  for(let i=0;i<3;i++)b.add(G.tor(.15-i*.018,.018,3,10,Math.PI*1.5),BN,.01,.76-i*.075,0,Math.PI/2,Math.PI*.75,0,1,1,.85);
+  b.add(G.sph(.1,6,4),BN,0,.44,0,0,0,0,1,.55,1.4);
+  b.add(G.box(.05,.04,.36),BN,0,.83,0);
+  b.add(G.box(.11,.15,.2),"#4a3a50",.06,.36,0,0,0,.15);
+  V.defKit("m_tk",b.build(),M.std,240);
+  b=B();skull(b);V.defKit("m_tk_s",b.build(),M.std,40);
+  b=B();for(const s of[1,-1])b.add(G.sph(.021,4,3),"#ff4a3a",.165,.97,.06*s);V.defKit("m_tk_g",b.build(),M.glow,240,false);
+  b=B();b.add(G.box(.12,.045,.14),BN,.07,-.02,0);for(let i=-1;i<=1;i++)b.add(G.box(.02,.025,.025),"#fbf7ea",.125,.015,i*.035);V.defKit("m_tk_j",b.build(),M.std,240);
+  b=B();seg(b,[0,0,0],[0,-.2,0],.024,.02,BN[0]);seg(b,[0,-.2,0],[.08,-.38,0],.02,.017,BN[1]);b.add(G.sph(.035,5,4),BN[0],.09,-.41,0);V.defKit("m_tk_a",b.build(),M.std,480);
+  b=B();seg(b,[0,0,0],[.02,-.2,0],.027,.022,BN[0]);seg(b,[.02,-.2,0],[0,-.39,0],.022,.019,BN[1]);b.add(G.box(.1,.03,.06),BN[2],.04,-.405,0);V.defKit("m_tk_l",b.build(),M.std,480);
+  // bat: a furry body with big ears, red eyes and membrane wings that beat fast
+  b=B();
+  b.add(G.ico(.2,1),["#4a3a5e","#3e3150","#54446a"],0,0,0,0,0,0,1.1,.95,.95);
+  b.add(G.sph(.13,8,6),["#54446a","#4a3a5e"],.17,.05,0);
+  for(const s of[1,-1]){b.add(G.cone(.055,.2,4),"#3e3150",.15,.22,.07*s,.35*s,0,.2);b.add(G.cone(.012,.05,3),"#f4f0de",.27,-.03,.03*s,0,0,Math.PI)}
+  b.add(G.cone(.03,.06,4),"#2a2236",.29,.04,0,0,0,-Math.PI/2);
+  V.defKit("m_kl",b.build(),M.std,240);
+  b=B();for(const s of[1,-1])b.add(G.sph(.026,5,4),"#ff3a3a",.25,.09,.055*s);V.defKit("m_kl_g",b.build(),M.glow,240,false);
+  {const ws=new THREE.Shape();ws.moveTo(0,0);ws.lineTo(.08,.5);ws.quadraticCurveTo(-.05,.4,-.12,.46);ws.quadraticCurveTo(-.17,.3,-.3,.32);ws.quadraticCurveTo(-.29,.15,-.38,.1);ws.lineTo(-.2,0);ws.closePath();
+    b=B();b.add(new THREE.ShapeGeometry(ws),"#2e2440",0,0,0,Math.PI/2,0,0);
+    for(const q of[[.08,.5],[-.12,.46],[-.3,.32]])seg(b,[0,0,0],[q[0],0,q[1]],.014,.008,"#1e1828");
+    V.defKit("m_kl_w",b.build(),M.cloth,960,false)}
+  // mummy: wrapped in bandages, arms reaching forward, loose strips that flutter, green eyes
+  const BD=["#d9cfb0","#c9bd98","#e3dbc0","#bfb38e"];
+  b=B();
+  b.add(G.cyl(.21,.24,.5,9),BD,0,.6,0);
+  b.add(G.cyl(.22,.18,.16,9),BD,0,.3,0);
+  b.add(G.sph(.18,9,7),BD,.05,1.0,0,0,0,0,1,1.05,.95);
+  b.add(G.box(.06,.05,.24),"#2a2218",.2,1.0,0);
+  for(const s of[1,-1])b.add(G.sph(.075,6,5),BD,0,.86,.22*s);
+  b.add(G.tor(.215,.025,3,12),"#b3a681",0,.72,0,Math.PI/2,0,.2);b.add(G.tor(.23,.022,3,12),"#b3a681",0,.48,0,Math.PI/2,0,-.15);
+  V.defKit("m_mm",b.build(),M.std,240);
+  b=B();for(const s of[1,-1])b.add(G.sph(.028,5,4),"#7dff6a",.225,1.01,.055*s);V.defKit("m_mm_g",b.build(),M.glow,240,false);
+  b=B();b.add(G.cap(.065,.3,2,7),BD,0,-.2,0);b.add(G.sph(.07,6,5),BD,0,-.4,0,0,0,0,1,.8,1.2);for(let i=-1;i<=1;i++)b.add(G.cone(.018,.07,3),BD[1],.02,-.48,i*.035,0,0,Math.PI);
+  V.defKit("m_mm_a",b.build(),M.std,480);
+  b=B();b.add(G.cap(.08,.18,2,7),BD,0,-.14,0);b.add(G.box(.16,.06,.11),BD[3],.04,-.3,0);V.defKit("m_mm_l",b.build(),M.std,480);
+  b=B();b.add(G.box(.008,.3,.07),"#d3c8a6",0,-.15,0);V.defKit("m_mm_s",b.build(),M.cloth,960);
+  // imp: a small red devil with horns, a toothy grin, a pointed tail and a pitchfork
+  const IR=["#c8382c","#d4402f","#b83226"];
+  b=B();
+  b.add(G.sph(.23,9,7),IR,0,.4,0,0,0,0,1,1,.92);
+  b.add(G.sph(.15,8,6),"#e8784e",.12,.38,0,0,0,0,.6,.9,.9);
+  b.add(G.sph(.22,10,8),IR,.04,.74,0);
+  for(const s of[1,-1]){
+    b.add(G.cone(.05,.2,5),"#2a1a1a",-.02,.95,.12*s,.5*s,0,.15);
+    b.add(G.cone(.04,.12,4),IR[1],-.02,.8,.21*s,(Math.PI/2-.3)*s,0,.3);
+    b.add(G.box(.07,.022,.06),"#3a1010",.22,.84,.08*s,.35*s,0,-.25);
+    seg(b,[0,.55,.18*s],[.1,.42,.25*s],.045,.04,IR[0]);b.add(G.sph(.05,6,5),IR[1],.11,.41,.26*s);
+  }
+  b.add(G.box(.05,.04,.18),"#3a1010",.24,.66,0);
+  for(const s of[1,-1])b.add(G.cone(.016,.045,3),"#fff6e0",.26,.645,.04*s,0,0,Math.PI);
+  seg(b,[-.18,.3,0],[-.36,.36,0],.03,.025,IR[2]);seg(b,[-.36,.36,0],[-.46,.52,0],.025,.02,IR[2]);b.add(G.oct(.06),"#2a1a1a",-.48,.58,0,0,0,.5,1,1.3,.4);
+  V.defKit("m_ib",b.build(),M.std,240);
+  b=B();for(const s of[1,-1])b.add(G.sph(.034,5,4),"#ffd84a",.215,.77,.085*s);V.defKit("m_ib_g",b.build(),M.glow,240,false);
+  b=B();b.add(G.cyl(.014,.014,.8,5),"#3a2a20",0,.2,0);b.add(G.box(.16,.02,.02),"#9aa0a8",0,.6,0);for(let i=-1;i<=1;i++)b.add(G.cone(.016,.1,4),"#9aa0a8",i*.075,.66,0);
+  V.defKit("m_ib_f",b.build(),M.std,240);
+  b=B();b.add(G.cap(.05,.08,2,6),IR[0],0,-.08,0);b.add(G.sph(.055,6,4),"#2a1a1a",.02,-.18,0,0,0,0,1.3,.6,1);V.defKit("m_ib_l",b.build(),M.std,480);
+  // lava golem: dark boulders held together by glowing magma, with huge fists
+  const RK=["#3a302c","#4a3e38","#2e2624","#423632"];
+  b=B();
+  b.add(G.dod(.36),RK,0,.72,0,0,.3,0,1.05,1.1,.92);
+  b.add(G.dod(.2),RK,.14,1.1,0,0,.6,0,1,.9,1);
+  for(const s of[1,-1])b.add(G.dod(.17),RK,-.02,.98,.33*s,0,s,0);
+  b.add(G.dod(.2),RK,0,.38,0,0,.2,0,1.2,.7,1.1);
+  V.defKit("m_gl",b.build(),M.std,240);
+  b=B();
+  for(const s of[1,-1]){b.add(G.sph(.035,5,4),"#ffd04a",.31,1.12,.07*s);b.add(G.box(.035,.2,.035),"#ff7a2a",.05,.98,.3*s,.6*s,0,0)}
+  b.add(G.box(.04,.3,.04),"#ff7a2a",.33,.74,.05,0,0,.35);b.add(G.box(.04,.22,.04),"#ff9a3a",.32,.7,-.08,0,0,-.5);b.add(G.oct(.09),"#ffb84a",.3,.62,0,0,0,0,.5,1,1);
+  V.defKit("m_gl_g",b.build(),M.glow,240,false);
+  b=B();b.add(G.cap(.11,.24,2,7),RK,0,-.22,0);b.add(G.dod(.16),RK,.02,-.52,0,0,.4,0,1,1.1,1.1);V.defKit("m_gl_a",b.build(),M.std,480);
+  b=B();b.add(G.box(.035,.12,.035),"#ff7a2a",.14,-.5,0,0,0,.5);b.add(G.box(.035,.1,.035),"#ffb84a",.08,-.6,.08,.4,0,0);V.defKit("m_gl_k",b.build(),M.glow,480,false);
+  b=B();b.add(G.cap(.12,.14,2,7),RK,0,-.14,0);b.add(G.dod(.14),RK,.04,-.3,0,0,.3,0,1.2,.6,1);V.defKit("m_gl_l",b.build(),M.std,480);
+
   // ice that encases a frozen tower
   b=B();b.add(G.box(.92,1,.92),["#bfe6ff","#d8f2ff","#a9d8f2"],0,.5,0);for(let i=0;i<4;i++){const a=i*Math.PI/2+.4;b.add(G.oct(.12),"#e6f8ff",Math.cos(a)*.3,1,Math.sin(a)*.3,0,a,0,.7,1.6,.7)}
   V.defKit("iceblock",b.build(),M.ice,130,false);

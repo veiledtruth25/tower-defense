@@ -77,7 +77,9 @@ Tampilan menunda ledakan kematian sampai proyektil yang membunuh benar-benar men
 ### Konvensi untuk konten baru
 
 - **Musuh baru**: tambahkan ke `EN`. Field opsional untuk tampilan: `model`, `boss: true` (bar HP besar dan aura), `ds` (deskripsi di "Kenali musuh"). Musuh tanpa `model` digambar sebagai bola berwarna `EN.col` sampai sesi desain membuat modelnya.
-- **Model yang sudah ada**: `"lendir"`, `"kilat"`, `"kura"`, `"raja"`, `"hantu"`, `"perisai"`, dan bos `"rajalendir"`, `"kalajengking"`, `"yeti"`, `"naga"`. Model bos dianggap bos kalau `boss` tidak diisi. Model yang belum dipakai `EN` hanya muncul di galeri.
+- **Model yang sudah ada**: `"lendir"`, `"kilat"`, `"kura"`, `"raja"`, `"hantu"`, `"perisai"`, `"goblin"`, `"serigala"`, `"tengkorak"`, `"kelelawar"`, `"mumi"`, `"iblis"`, `"anjingapi"`, `"golemlava"`, dan bos `"rajalendir"`, `"kalajengking"`, `"yeti"`, `"naga"`. Model bos dianggap bos kalau `boss` tidak diisi. Model yang belum dipakai `EN` hanya muncul di galeri.
+- **Ketahanan `EN[t].res`** juga dibaca tampilan: tembakan Panah atau Jitu yang hanya kena kurang dari 60% tampil memantul dengan percikan dan bunyi dentang.
+- **Urutan munculnya musuh** tidak disimpan di tampilan. "Kenali musuh", deretan "Musuh di level ini" di menu, dan pertempuran mini di menu dihitung dari `waveList(n,L)` dan `levelWaves(L)`. Jadi kalau sesi logika mengubah susunan gelombang, semua itu ikut berubah sendiri.
 - **Galeri**: buka halaman dengan `#galeri` di akhir alamat, atau tekan "Galeri 3D" di menu. Pertempuran mini di menu lalu memamerkan semua model (termasuk yang belum ada di `EN`), bos memakai kemampuannya, dan kamera mendekati tiap monster. Ketuk kartu di "Kenali musuh" untuk melihat satu monster sendirian.
 - **Menara baru** (indeks 4 ke atas): sementara memakai model Panah. Tulis permintaannya di catatanmu.
 - **Peta baru**: tema mengikuti urutan peta (indeks % 4). Sesi desain bisa menambah tema.
@@ -116,7 +118,7 @@ Hal yang perlu diketahui sesi logika:
 
 ## Event internal tampilan untuk audio
 
-Tampilan mengirim `v:fire`, `v:hit`, `v:die`, `v:build`, `v:upgrade`, `v:sell`, `v:spawn`, `v:wave`, `v:clear`, `v:win`, `v:lose`, `v:leak`, `v:help`, `v:firework`, `v:ability` dan `v:block` pada saat efeknya terlihat, lalu `audio.js` memutar suaranya. Sesi logika tidak perlu memakai event ini.
+Tampilan mengirim `v:fire`, `v:hit`, `v:die`, `v:build`, `v:upgrade`, `v:sell`, `v:spawn`, `v:wave`, `v:clear`, `v:win`, `v:lose`, `v:leak`, `v:help`, `v:firework`, `v:ability`, `v:block` dan `v:newfoe` pada saat efeknya terlihat, lalu `audio.js` memutar suaranya. Sesi logika tidak perlu memakai event ini.
 
 ## Menjalankan dan menerbitkan
 

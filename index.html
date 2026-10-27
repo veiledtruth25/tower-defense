@@ -41,15 +41,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .hint{font-size:12px;color:var(--muted);margin:0}
 /* menu */
 .menu{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.hero-view{position:relative;width:100%;aspect-ratio:20/11;background:var(--bg)}
+.hero .in{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 @media (max-width:760px){.menu{grid-template-columns:minmax(0,1fr)}
   /* phones: the island, then levels and the play buttons, then the story and the bestiary */
   .hero{display:contents}
   .hero-view{order:1;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
   .menu-card{order:2}
   .hero .in{order:3;background:var(--panel);border:1px solid var(--line);border-radius:8px}}
-.hero{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
-.hero-view{position:relative;width:100%;aspect-ratio:20/11;background:var(--bg)}
-.hero .in{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .hero h2{font-family:var(--font-display);font-weight:400;font-size:clamp(22px,3vw,30px);margin:0;line-height:1.1;text-wrap:balance}
 .hero p{margin:0;color:var(--muted);max-width:60ch}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
@@ -84,7 +84,9 @@ input.t{background:var(--bg);border:1px solid var(--line);border-radius:6px;padd
 .lv.boss{border-style:dashed}
 .lv.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .lv:disabled{opacity:.35;cursor:not-allowed}
-.lv.lock{opacity:.55;border-style:dotted}
+/* levels the project owner may open for testing although they are still locked */
+.lv.lock{opacity:.6;border-style:dashed;border-color:var(--muted);background:repeating-linear-gradient(135deg,var(--panel2) 0 5px,rgba(255,255,255,.05) 5px 9px)}
+#ownerNote{border-left:3px solid var(--accent);padding-left:10px}
 .items{display:flex;flex-direction:column;gap:6px}
 .item{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px}
 .ic{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;font-family:var(--font-display);font-size:13px;color:#141925}
@@ -114,6 +116,14 @@ input.t{background:var(--bg);border:1px solid var(--line);border-radius:6px;padd
 .beast{display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto auto;gap:0 8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 8px 4px 4px;font:inherit;color:inherit;text-align:left;position:relative}
 .beast:hover{border-color:var(--muted)}
 .beast canvas{grid-row:1/4;width:44px;height:44px}
+.beast .from{font-style:normal;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.lvfoes{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:40px}
+.lvfoes-h{flex-basis:100%;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.foe{position:relative;width:40px;height:40px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center}
+.foe canvas{width:36px;height:36px}
+.foe.boss{border-color:rgba(229,98,90,.7)}
+.foe.new{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.foe b{position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;line-height:1;padding:2px 4px;border-radius:3px;background:var(--accent);color:var(--accent-ink)}
 .beast em{position:absolute;top:4px;right:6px;font-style:normal;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent);border-radius:3px;padding:1px 5px}
 .gal-cap{position:absolute;left:10px;right:10px;bottom:10px;z-index:2;max-width:440px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:8px 12px;border-radius:10px;background:rgba(14,18,28,.84);border:1px solid var(--line);pointer-events:none}
 .gal-cap b{font-family:var(--font-display);font-weight:400;font-size:16px;letter-spacing:.03em;color:var(--accent)}
@@ -149,6 +159,17 @@ input.t{background:var(--bg);border:1px solid var(--line);border-radius:6px;padd
 .ov-end.lose{color:var(--danger)}
 .ov-end.on{animation:ovEnd .9s cubic-bezier(.2,1.5,.4,1) forwards}
 @keyframes ovEnd{0%{opacity:0;transform:scale(2.2)}100%{opacity:1;transform:scale(1)}}
+.ov-foe{position:absolute;left:calc(var(--fl,0px) + 10px);top:calc(var(--ft,0px) + 58px);display:flex;align-items:center;gap:10px;max-width:min(340px,calc(100% - var(--fl,0px) - var(--fr,0px) - 20px));
+  padding:8px 14px 8px 8px;border-radius:12px;background:rgba(14,18,28,.92);border:1px solid rgba(240,181,69,.55);box-shadow:0 8px 24px rgba(0,0,0,.4);
+  transform:translateX(calc(-100% - 30px));opacity:0;transition:transform .5s cubic-bezier(.2,1.3,.4,1),opacity .3s}
+.ov-foe.on{transform:none;opacity:1}
+.ov-foe.boss{border-color:rgba(229,98,90,.7)}
+.ov-foe canvas{width:56px;height:56px;flex:none;border-radius:8px;background:rgba(255,255,255,.05)}
+.ov-foe div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ov-foe small{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.ov-foe.boss small{color:var(--danger)}
+.ov-foe b{font-family:var(--font-display);font-weight:400;font-size:17px;letter-spacing:.03em;color:var(--fg)}
+.ov-foe span{font-size:12px;line-height:1.3;color:var(--muted)}
 .ov-tint{position:absolute;inset:0;opacity:0}
 .ov-tint.on{animation:ovFade var(--d,1s) ease-out forwards}
 .ov-hurt{position:absolute;inset:0;opacity:0;background:radial-gradient(ellipse at center,rgba(229,98,90,0) 50%,rgba(229,98,90,.55))}
@@ -263,6 +284,17 @@ html.playing #toast{bottom:calc(var(--fb,0px) + 52px)}
 .gm-row{display:flex;flex-wrap:wrap;gap:8px}
 .gm-row>*{flex:1 1 auto}
 .ghost.danger{color:#ffb8b2;border-color:rgba(229,98,90,.55)}
+/* the owner's test bot, inside the game menu */
+#botBox{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;border:1px dashed rgba(240,181,69,.5);background:rgba(240,181,69,.05)}
+#botBox h3{color:var(--accent)}
+#botBox p{margin:0}
+#botBox label{display:flex;align-items:center;gap:8px;cursor:pointer}
+#botBox input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+#botSpeeds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+#botSpeeds button{padding:8px 0;font-weight:700;font-variant-numeric:tabular-nums}
+#botSpeeds [aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:rgba(240,181,69,.12)}
+#botLog{margin:0;padding-left:18px;max-height:132px;overflow:auto;display:flex;flex-direction:column;gap:2px;font-size:12px;font-variant-numeric:tabular-nums}
+#botLog:empty{display:none}
 #plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 #plist li{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px;font-variant-numeric:tabular-nums}
 #plist .dot{width:12px;height:12px;border-radius:3px}
@@ -354,6 +386,7 @@ html.playing #toast{bottom:calc(var(--fb,0px) + 52px)}
       </div>
       <div class="pane" id="pane-level">
         <div class="lvinfo" id="lvInfo">Memuat progres…</div>
+        <div class="lvfoes" id="lvFoes" aria-label="Musuh di level yang dipilih"></div>
         <div class="lvgrid" id="lvGrid"></div>
         <p class="hint" id="ownerNote" hidden>Mode pemilik: level yang belum terbuka (bergaris titik) tetap bisa kamu pilih untuk uji. Hasilnya tidak mengubah progres.</p>
         <div class="row">

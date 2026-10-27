@@ -80,7 +80,15 @@ const SND={
   dig(){noise(.55,{f:500,fs:-260,vol:.18,att:.05});tone(70,.42,{slide:-25,vol:.15})},
   emerge(){noise(.35,{f:1400,fs:-1000,vol:.2});tone(95,.3,{slide:-50,vol:.2})},
   thud(){tone(55,.55,{slide:-25,vol:.45});noise(.5,{f:600,fs:-450,vol:.3});noise(.8,{ft:"highpass",f:4500,vol:.06,delay:.08,att:.05})},
-  flame(){noise(1.1,{ft:"bandpass",f:700,fs:500,q:.6,vol:.22,att:.12});tone(90,.9,{type:"sawtooth",vol:.05,lp:400,att:.1})}
+  flame(){noise(1.1,{ft:"bandpass",f:700,fs:500,q:.6,vol:.22,att:.12});tone(90,.9,{type:"sawtooth",vol:.05,lp:400,att:.1})},
+  newfoe(){[392,494,587].forEach((f,i)=>tone(f,.14,{type:"triangle",vol:.07,delay:i*.07}));tone(784,.3,{type:"triangle",vol:.06,delay:.21})},
+  squeak(){tone(900,.12,{type:"square",slide:500,vol:.035,lp:3000});tone(1300,.1,{type:"square",slide:-500,vol:.03,lp:3000,delay:.09})},
+  yelp(){tone(700,.18,{type:"triangle",slide:500,vol:.08});tone(1100,.25,{slide:-700,vol:.05,delay:.12})},
+  rattle(){for(let i=0;i<5;i++)noise(.035,{ft:"bandpass",f:2200+i*300,q:4,vol:.12,delay:i*.045})},
+  screech(){tone(2600,.25,{type:"sawtooth",slide:1600,vol:.03,lp:6000});tone(3400,.2,{slide:-1800,vol:.025,delay:.06})},
+  groan(){tone(120,.7,{type:"sawtooth",slide:-40,vol:.08,lp:500,att:.1});noise(.5,{f:400,vol:.06,att:.1})},
+  poof(){noise(.25,{f:2500,fs:-2000,vol:.16});tone(500,.15,{slide:400,vol:.05,delay:.05})},
+  crumble(){noise(.6,{f:400,fs:-250,vol:.3,att:.02});for(let i=0;i<4;i++)noise(.06,{ft:"bandpass",f:900-i*120,q:2,vol:.12,delay:.08+i*.07})}
 };
 // play with a minimum gap per sound so a busy wave never turns into noise
 function play(k,gap,x){
@@ -88,7 +96,8 @@ function play(k,gap,x){
   if(AU.last[k]&&now-AU.last[k]<(gap||.04))return;AU.last[k]=now;
   pan=x==null?0:x/11;try{SND[k]()}catch(e){}pan=0;
 }
-const FIRE=["arrow","cannon","ice","snipe"],HIT={0:"tick",1:"boom",2:"frost",3:"zap",9:"bigboom"},DIE={lendir:"splat",kilat:"buzz",kura:"crack",hantu:"wail",perisai:"clang"};
+const FIRE=["arrow","cannon","ice","snipe"],HIT={0:"tick",1:"boom",2:"frost",3:"zap",9:"bigboom"},DIE={lendir:"splat",kilat:"buzz",kura:"crack",hantu:"wail",perisai:"clang",
+  goblin:"squeak",serigala:"yelp",anjingapi:"yelp",tengkorak:"rattle",kelelawar:"screech",mumi:"groan",iblis:"poof",golemlava:"crumble"};
 const ABIL={summon:"blorp",burrow:"dig",emerge:"emerge",stomp:"thud",breath:"flame",enrage:"roar"};
 BB.on("v:fire",d=>play(FIRE[d.k]||"arrow",[.05,.08,.07,.08][d.k]||.06,d.x));
 BB.on("v:hit",d=>play(HIT[d.k]||"tick",d.k===9?.12:.08,d.x));
@@ -97,7 +106,7 @@ BB.on("v:build",d=>play("build",.1,d.x));BB.on("v:upgrade",d=>play("up",.1,d.x))
 BB.on("v:spawn",()=>play("roar",1));BB.on("v:wave",()=>play("horn",.5));BB.on("v:clear",()=>play("clear",.5));
 BB.on("v:win",()=>play("win",1));BB.on("v:lose",()=>play("lose",1));BB.on("v:leak",()=>play("leak",.2));BB.on("v:firework",d=>play("pop",.15,d.x));
 BB.on("v:help",d=>play(["meteor","freeze","gold","repair","rage"][d.k]||"click",.3));
-BB.on("v:ability",d=>play(ABIL[d.k]||"horn",.3,d.x));BB.on("v:block",d=>play("clang",.09,d.x));
+BB.on("v:ability",d=>play(ABIL[d.k]||"horn",.3,d.x));BB.on("v:newfoe",()=>play("newfoe",.8));BB.on("v:block",d=>play("clang",.09,d.x));
 
 // background music: a small step sequencer per map theme, slower at night, darker in the eclipse,
 // and busier while a wave runs or a boss walks
