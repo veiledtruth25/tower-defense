@@ -26,9 +26,7 @@ Game tower defense co-op 3D di browser untuk 1–4 pemain. Pemain membangun mena
 
 Buka `index.html` di browser untuk mode main sendiri. Tidak perlu server, karena semua skrip dimuat dari folder `js/` dan `vendor/`. Butuh browser yang mendukung WebGL.
 
-Multiplayer butuh server room. Ada dua cara:
-- **Server sendiri (VPS):** `server/server.js` menyajikan game dan menjadi room lewat WebSocket. Alamat yang sedang berjalan: https://towerdefense.evertwo.id. Lihat "Deploy di VPS" di bawah.
-- **Artifact claude.ai:** memakai kemampuan `room` bawaan penampil.
+**Sumber terpercaya satu-satunya adalah https://towerdefense.evertwo.id** (kode di repo ini, dijalankan oleh `server/server.js`). Versi Artifact di claude.ai sudah dihentikan dan tidak dirawat lagi. Multiplayer memakai server itu: `server/server.js` menyajikan game dan menjadi room lewat WebSocket. Lihat "Deploy di VPS" di bawah.
 
 Dari file lokal atau GitHub Pages, yang bisa dimainkan hanya mode main sendiri.
 

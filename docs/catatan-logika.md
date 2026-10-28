@@ -89,3 +89,7 @@ Gejala di produksi: dua pemain di satu room, masing-masing mengaku host dan menj
   - Host yang id-nya tetap berganti (misalnya server restart) mengganti `S.h` dan slotnya sendiri di dalam permainan.
 - **Uji:** `tests/reconnect.js`. Di kode lama gagal di dua pemeriksaan (tamu kedip "keluar" dan dua pengiklan host di lobi), di kode baru semuanya lulus.
 - **Peringatan:** loop permainan memakai `requestAnimationFrame`. Tab host yang disembunyikan berhenti menghitung dan mengirim state, jadi saat menguji dengan dua jendela, biarkan jendela host tetap terlihat.
+
+## 2026-10-28: sumber terpercaya hanya di towerdefense.evertwo.id
+
+Atas permintaan pemilik proyek, Artifact claude.ai dihentikan. Yang berlaku sekarang: kode di repo ini, dijalankan di https://towerdefense.evertwo.id. Tidak ada lagi penerbitan Artifact. Kode lama untuk `window.claude` (`user`, `db`, `room` bawaan claude.ai) di `game.js` dibiarkan karena tidak berbahaya, dan di server sendiri `js/net-ws.js` yang menyediakan `room`. Progres pemain disimpan di browser masing-masing.

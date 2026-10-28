@@ -126,4 +126,4 @@ Tampilan mengirim `v:fire`, `v:hit`, `v:die`, `v:build`, `v:upgrade`, `v:sell`, 
 ## Menjalankan dan menerbitkan
 
 - **Lokal**: buka `index.html` di browser. Semua skrip memakai `<script src>` biasa, jadi bisa jalan dari file lokal tanpa server.
-- **Artifact claude.ai**: terbitkan `index.html` beserta `vendor/three.min.js`, `js/bus.js`, `js/audio.js`, `js/view/*.js` (termasuk `hud.js`) dan `js/game.js` sebagai file pendukung (path sama). Kemampuan yang dibutuhkan: `room` (topik `state` dan `cmd` dibuka untuk level `interact`), `user`, dan `db` (koleksi `events` hanya bisa ditulis admin).
+- **Produksi**: https://towerdefense.evertwo.id adalah satu-satunya sumber terpercaya. Setelah `git push` ke `main`, pemilik menjalankan `git pull && docker compose up -d --build` di VPS (lihat "Deploy di VPS" di README). Versi Artifact claude.ai sudah dihentikan, jadi tidak perlu lagi menerbitkan ke sana.
